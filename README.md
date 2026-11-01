@@ -55,3 +55,14 @@ MIT © [fansanqiu](https://github.com/fansanqiu)
 ## 致谢
 
 本项目基于 [OlivierEstevez/eagle-twitter-video-downloader](https://github.com/OlivierEstevez/eagle-twitter-video-downloader) 开发，感谢原作者的开创性工作。视频解析与提取由 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 提供支持，音视频合并与转码由 [FFmpeg](https://ffmpeg.org) 提供支持。
+
+## 浏览器扩展（Edge / Chromium）
+
+仓库内 `edge-extension/` 是配套的浏览器扩展（Manifest V3）：在 X / Twitter 的视频与动图下方显示「保存到 Eagle」按钮，点击后把推文链接推送给本机插件自动下载。
+
+- 内容脚本把「推文链接 + 视频直链」发给后台 service worker
+- 后台优先推送到插件桥接端口 `127.0.0.1:43110`，由插件用 yt-dlp 下载（支持 NSFW 与需登录内容）
+- 插件未打开或依赖未就绪时，退回 Eagle 本地 API `127.0.0.1:41595` 直接接收直链
+- 两者都不可用时按钮提示「请先打开 Eagle 插件」
+
+安装：打开 `edge://extensions`，开启「开发人员模式」，选择「加载解压缩的扩展」，指向 `edge-extension/` 目录。

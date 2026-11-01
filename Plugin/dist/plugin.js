@@ -3012,6 +3012,10 @@ var require_bilibili = __commonJS({
 // js/sites/twitter.js
 var require_twitter = __commonJS({
   "js/sites/twitter.js"(exports2, module2) {
+    var { validateUrl, assertHostAllowed, secureHttpsGet } = require_net_guard();
+    var STATUS_ID_RE = /\/(?:status|statuses)\/(\d+)/;
+    var ALLOWED_MEDIA_DOMAINS = ["video.twimg.com"];
+    var RECOVERABLE_ERROR_RE = /No video formats found|No video could be found|TweetTombstone|NSFW|age.?restrict|not authorized|requires authentication/i;
     function match(url) {
       try {
         const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
@@ -3025,9 +3029,119 @@ var require_twitter = __commonJS({
         "--ignore-no-formats-error"
       ];
     }
+    function getStatusId(url) {
+      const matched = String(url || "").match(STATUS_ID_RE);
+      return matched ? matched[1] : null;
+    }
+    function getOutputTemplate(args) {
+      const index = args.indexOf("-o");
+      if (index >= 0 && typeof args[index + 1] === "string" && args[index + 1].trim()) {
+        return args[index + 1];
+      }
+      return null;
+    }
+    function pickBestVideoUrl(tweet) {
+      const videos = tweet && tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
+      for (const video of videos) {
+        const variants = Array.isArray(video.variants) ? video.variants.filter((variant) => {
+          if (!variant || typeof variant.url !== "string")
+            return false;
+          const kind = `${variant.content_type || ""} ${variant.container || ""}`.toLowerCase();
+          return kind.includes("mp4") || kind.includes("video/");
+        }) : [];
+        variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        const candidate = variants.length > 0 ? variants[0].url : video.url;
+        if (typeof candidate === "string" && candidate.startsWith("https://")) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+    function fetchTweetJson(statusId) {
+      return new Promise(async (resolve) => {
+        let settled = false;
+        const finish = (value) => {
+          if (!settled) {
+            settled = true;
+            resolve(value);
+          }
+        };
+        try {
+          const apiUrl = `https://api.fxtwitter.com/status/${statusId}`;
+          await validateUrl(apiUrl);
+          const req = await secureHttpsGet(
+            apiUrl,
+            {
+              headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+              }
+            },
+            (res) => {
+              if (res.statusCode !== 200) {
+                res.resume();
+                return finish(null);
+              }
+              let body = "";
+              res.setEncoding("utf8");
+              res.on("data", (chunk) => {
+                body += chunk;
+                if (body.length > 2e6) {
+                  res.destroy();
+                  finish(null);
+                }
+              });
+              res.on("end", () => {
+                try {
+                  finish(JSON.parse(body));
+                } catch (e) {
+                  finish(null);
+                }
+              });
+              res.on("error", () => finish(null));
+            }
+          );
+          req.on("error", () => finish(null));
+          req.setTimeout(15e3, () => {
+            req.destroy();
+            finish(null);
+          });
+        } catch (e) {
+          finish(null);
+        }
+        setTimeout(() => finish(null), 2e4);
+      });
+    }
+    async function handleExecFailure({ stderr, args, onProgress, onOutput, execYtDlp, url }) {
+      try {
+        if (!match(url) || !Array.isArray(args) || args.includes("--dump-json"))
+          return null;
+        if (!RECOVERABLE_ERROR_RE.test(String(stderr || "")))
+          return null;
+        const statusId = getStatusId(url);
+        const outputTemplate = getOutputTemplate(args);
+        if (!statusId || !outputTemplate)
+          return null;
+        const data = await fetchTweetJson(statusId);
+        const directUrl = pickBestVideoUrl(data && data.tweet);
+        if (!directUrl)
+          return null;
+        await validateUrl(directUrl);
+        assertHostAllowed(directUrl, ALLOWED_MEDIA_DOMAINS);
+        return await execYtDlp(
+          [directUrl, "-o", outputTemplate, "--no-warnings", "--merge-output-format", "mp4"],
+          onProgress,
+          onOutput,
+          false
+        );
+      } catch (e) {
+        return null;
+      }
+    }
     module2.exports = {
       match,
-      getSiteArgs
+      getSiteArgs,
+      handleExecFailure
     };
   }
 });
@@ -3605,9 +3719,57 @@ var require_downloader = __commonJS({
     var siteAdapters = require_sites();
     var maxResolution = "auto";
     var maxFramerate = "auto";
+    var threadCount = 0;
     function setQualityPrefs({ resolution = "auto", framerate = "auto" } = {}) {
       maxResolution = resolution || "auto";
       maxFramerate = framerate || "auto";
+    }
+    function setThreadCount(value) {
+      const parsed = parseInt(value, 10);
+      threadCount = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+    function escapeRegExp(text) {
+      return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    function startProcessingWatcher(outputDir, sanitizedTitle, onProgress) {
+      const base = escapeRegExp(sanitizedTitle);
+      const finalRe = new RegExp(`^${base}_\\d+\\.[^.]+$`);
+      const partRe = new RegExp(`^${base}_\\d+\\.[^.]{1,8}\\.[^.]+$`);
+      const timer = setInterval(() => {
+        let entries = [];
+        try {
+          entries = fs.readdirSync(outputDir);
+        } catch (e) {
+          return;
+        }
+        const finals = entries.filter((name) => finalRe.test(name) && !partRe.test(name));
+        if (!finals.length)
+          return;
+        let expected = 0;
+        for (const name of entries) {
+          if (!partRe.test(name))
+            continue;
+          try {
+            expected += fs.statSync(path.join(outputDir, name)).size;
+          } catch (e) {
+          }
+        }
+        if (expected <= 0)
+          return;
+        let written = 0;
+        for (const name of finals) {
+          try {
+            written += fs.statSync(path.join(outputDir, name)).size;
+          } catch (e) {
+          }
+        }
+        if (onProgress) {
+          onProgress({ processingPercent: Math.max(0, Math.min(99, Math.round(written / expected * 100))) });
+        }
+      }, 400);
+      if (timer.unref)
+        timer.unref();
+      return { stop: () => clearInterval(timer) };
     }
     function buildFormatSelector(resolution, framerate) {
       const heightFilter = resolution && resolution !== "auto" ? `[height<=${resolution}]` : "";
@@ -3920,6 +4082,9 @@ var require_downloader = __commonJS({
         "--no-warnings",
         ...siteAdapters.getSiteArgs(targetUrl)
       ];
+      if (threadCount > 0) {
+        args.push("-N", String(threadCount));
+      }
       const ffmpeg = getFfmpegPath();
       if (ffmpeg && fs.existsSync(ffmpeg)) {
         args.push("--ffmpeg-location", path.dirname(ffmpeg));
@@ -3927,7 +4092,33 @@ var require_downloader = __commonJS({
       if (onStatus)
         onStatus(i18next3.t("ui.downloading"));
       const filesBefore = new Set(fs.existsSync(outputDir) ? fs.readdirSync(outputDir) : []);
-      await execYtDlp(args, onProgress, null, { targetUrl });
+      let processingPhase = null;
+      let processingWatcher = null;
+      let pendingOutput = "";
+      const handleOutput = (chunk) => {
+        const text = pendingOutput + String(chunk || "");
+        pendingOutput = text.slice(-32);
+        let next = null;
+        if (/\[Merger\]|Merging formats/i.test(text)) {
+          next = "merge";
+        } else if (/\[VideoConvertor\]|Converting video|\[Fixup/i.test(text)) {
+          next = "convert";
+        }
+        if (next && next !== processingPhase) {
+          processingPhase = next;
+          if (onProgress)
+            onProgress({ phase: next });
+          if (!processingWatcher) {
+            processingWatcher = startProcessingWatcher(outputDir, sanitizedTitle, onProgress);
+          }
+        }
+      };
+      try {
+        await execYtDlp(args, onProgress, handleOutput, { targetUrl });
+      } finally {
+        if (processingWatcher)
+          processingWatcher.stop();
+      }
       const filesAfter = fs.readdirSync(outputDir);
       const newFiles = filesAfter.filter((f) => !filesBefore.has(f) && f.startsWith(sanitizedTitle));
       if (newFiles.length === 0) {
@@ -3952,6 +4143,7 @@ var require_downloader = __commonJS({
       getVideoInfo,
       cleanup,
       setQualityPrefs,
+      setThreadCount,
       buildFormatSelector
     };
   }
@@ -4018,6 +4210,29 @@ var require_ui = __commonJS({
         if (e.key === "Enter")
           handleSubmit();
       });
+      const pasteButton = document.getElementById("pasteButton");
+      if (pasteButton) {
+        pasteButton.addEventListener("click", () => {
+          let clipboardText = "";
+          try {
+            clipboardText = eagle && eagle.clipboard && typeof eagle.clipboard.readText === "function" ? eagle.clipboard.readText() : "";
+          } catch (e) {
+            clipboardText = "";
+          }
+          clipboardText = String(clipboardText || "").trim();
+          const urlMatch = clipboardText.match(/https:\/\/[^\s"'<>]+/i);
+          const value = urlMatch ? urlMatch[0] : clipboardText;
+          if (!value)
+            return;
+          urlInput.value = value;
+          urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+          urlInput.focus();
+          try {
+            urlInput.setSelectionRange(value.length, value.length);
+          } catch (e) {
+          }
+        });
+      }
     }
     function setInputBarState(state, errorMessage = "") {
       const addButton = document.getElementById("addButton");
@@ -4036,6 +4251,14 @@ var require_ui = __commonJS({
           buttonImg.src = "assets/icon_error.svg";
       }
     }
+    function canDeleteQueueItem(item) {
+      return !!item && item.state !== "preparing" && item.state !== "downloading";
+    }
+    function removeQueueItem(id) {
+      const el = document.querySelector(`.download-item[data-id="${id}"]`);
+      if (el)
+        el.remove();
+    }
     function appendQueueItem(item) {
       const list = document.querySelector(".download-list");
       if (!list)
@@ -4049,13 +4272,14 @@ var require_ui = __commonJS({
       el.dataset.id = item.id;
       const isError = item.state === "error";
       el.innerHTML = `
+    <button class="item-delete" data-action="delete" data-id="${item.id}" title="${escapeHtml(i18next.t("queue.remove"))}">&#215;</button>
     <div class="item-title">${escapeHtml(item.title)}</div>
     <div class="item-progress-bar">
       <div class="item-progress-fill" style="width: ${item.progress}%"></div>
     </div>
-    <div class="item-footer ${isError ? "" : "hidden"}">
+    <div class="item-footer">
       <span class="item-meta">${escapeHtml(getMetaText(item))}</span>
-      <div class="item-actions">
+      <div class="item-actions${isError ? "" : " hidden"}">
         <button class="item-action-btn" data-action="retry" data-id="${item.id}">${i18next.t("queue.retry")}</button>
         <button class="item-action-btn" data-action="copyError" data-id="${item.id}" id="copy-error-btn-${item.id}">${i18next.t("queue.copyError")}</button>
         <button class="item-action-btn" data-action="copy" data-id="${item.id}" id="copy-btn-${item.id}">${i18next.t("queue.copyUrl")}</button>
@@ -4072,18 +4296,26 @@ var require_ui = __commonJS({
       const titleEl = el.querySelector(".item-title");
       if (titleEl)
         titleEl.textContent = data.title;
+      const bar = el.querySelector(".item-progress-bar");
       const fill = el.querySelector(".item-progress-fill");
+      const isProcessing = data.state === "downloading" && (data.phase === "merge" || data.phase === "convert");
+      const hasProcessingPercent = isProcessing && typeof data.processingPercent === "number";
+      const width = isProcessing ? hasProcessingPercent ? data.processingPercent : 100 : data.progress;
+      if (bar)
+        bar.classList.toggle("indeterminate", isProcessing && !hasProcessingPercent);
       if (fill)
-        fill.style.width = `${data.progress}%`;
+        fill.style.width = `${Math.max(0, Math.min(100, width || 0))}%`;
       const footer = el.querySelector(".item-footer");
-      const isError = data.state === "error";
       if (footer) {
-        footer.classList.toggle("hidden", !isError);
-        if (isError) {
-          const meta = footer.querySelector(".item-meta");
-          if (meta)
-            meta.textContent = getMetaText(data);
-        }
+        const meta = footer.querySelector(".item-meta");
+        if (meta)
+          meta.textContent = getMetaText(data);
+        const actions = footer.querySelector(".item-actions");
+        if (actions)
+          actions.classList.toggle("hidden", data.state !== "error");
+        const deleteBtn = el.querySelector(".item-delete");
+        if (deleteBtn)
+          deleteBtn.disabled = !canDeleteQueueItem(data);
       }
     }
     function showCopiedFeedback(id) {
@@ -4109,6 +4341,23 @@ var require_ui = __commonJS({
     function getMetaText(item) {
       if (item.state === "error") {
         return item.error || i18next.t("queue.error");
+      }
+      if (item.state === "completed") {
+        return i18next.t("queue.completed");
+      }
+      if (item.phase === "merge" || item.phase === "convert") {
+        const label = i18next.t(item.phase === "merge" ? "queue.merging" : "queue.converting");
+        return typeof item.processingPercent === "number" ? `${label} ${Math.round(item.processingPercent)}%` : `${label}...`;
+      }
+      if (item.state === "downloading") {
+        const parts = [];
+        if (typeof item.progress === "number")
+          parts.push(`${item.progress.toFixed(1)}%`);
+        if (item.speed)
+          parts.push(item.speed);
+        if (item.eta)
+          parts.push(`${i18next.t("queue.eta")} ${item.eta}`);
+        return parts.join(" \xB7 ");
       }
       return "";
     }
@@ -4147,7 +4396,7 @@ var require_ui = __commonJS({
         depsPanel == null ? void 0 : depsPanel.classList.remove("hidden");
       }
     }
-    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto" } = {}) {
+    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
       const tabBtnDeps = document.getElementById("tabBtnDeps");
@@ -4160,6 +4409,9 @@ var require_ui = __commonJS({
       const maxFpsLabel = document.getElementById("maxFramerateLabel");
       const maxFpsHint = document.getElementById("maxFramerateHint");
       const maxFpsSelect = document.getElementById("maxFramerateSelect");
+      const threadLabel = document.getElementById("threadCountLabel");
+      const threadHint = document.getElementById("threadCountHint");
+      const threadSelect = document.getElementById("threadCountSelect");
       const notice = document.getElementById("depsNotice");
       const ytdlpDesc = document.getElementById("ytdlpDesc");
       const ffmpegDesc = document.getElementById("ffmpegDesc");
@@ -4190,6 +4442,15 @@ var require_ui = __commonJS({
         if (maxFpsSelect.options[0])
           maxFpsSelect.options[0].textContent = i18next.t("deps.fpsAuto");
         maxFpsSelect.value = maxFrameratePref || "auto";
+      }
+      if (threadLabel)
+        threadLabel.textContent = i18next.t("deps.threadCountLabel");
+      if (threadHint)
+        threadHint.textContent = i18next.t("deps.threadCountHint");
+      if (threadSelect) {
+        if (threadSelect.options[0])
+          threadSelect.options[0].textContent = i18next.t("deps.threadAuto");
+        threadSelect.value = String(threadCountPref || "auto");
       }
       if (notice)
         notice.textContent = i18next.t("deps.setupRequired");
@@ -4368,6 +4629,8 @@ var require_ui = __commonJS({
       updateQueueItem,
       showCopiedFeedback,
       showCopiedErrorFeedback,
+      canDeleteQueueItem,
+      removeQueueItem,
       showDepsPage,
       hideDepsPage,
       setDepsGating,
@@ -4401,7 +4664,9 @@ var require_en = __commonJS({
         cancel: "Cancel",
         addToQueue: "Add to Queue",
         loading: "Loading...",
-        successDownload: "Successful download"
+        successDownload: "Successful download",
+        paste: "Paste from clipboard",
+        pin: "Always on Top"
       },
       queue: {
         waiting: "Waiting...",
@@ -4412,7 +4677,11 @@ var require_en = __commonJS({
         retry: "Retry",
         copyUrl: "Copy URL",
         copyError: "Copy Error",
-        copied: "Copied!"
+        copied: "Copied!",
+        eta: "ETA",
+        merging: "Merging",
+        converting: "Converting",
+        remove: "Remove from list"
       },
       download: {
         fetchingInfo: "Fetching video information...",
@@ -4501,7 +4770,10 @@ var require_en = __commonJS({
         downloadFailed: "Download failed",
         versionInstalled: "Version: {{version}}",
         versionUpdate: "{{from}} \u2192 {{to}}",
-        progressText: "Downloading... {{percent}}%"
+        progressText: "Downloading... {{percent}}%",
+        threadCountLabel: "Download Threads",
+        threadCountHint: "Concurrent fragments for HLS/DASH. Not always faster; direct MP4 stays single-connection.",
+        threadAuto: "Auto (Default)"
       }
     };
   }
@@ -4529,7 +4801,9 @@ var require_zh_CN = __commonJS({
         cancel: "\u53D6\u6D88",
         addToQueue: "\u6DFB\u52A0\u5230\u961F\u5217",
         loading: "\u52A0\u8F7D\u4E2D...",
-        successDownload: "\u4E0B\u8F7D\u6210\u529F"
+        successDownload: "\u4E0B\u8F7D\u6210\u529F",
+        paste: "\u7C98\u8D34\u526A\u8D34\u677F\u5185\u5BB9",
+        pin: "\u7A97\u53E3\u7F6E\u9876"
       },
       queue: {
         waiting: "\u7B49\u5F85\u4E2D...",
@@ -4540,7 +4814,11 @@ var require_zh_CN = __commonJS({
         retry: "\u91CD\u8BD5",
         copyUrl: "\u590D\u5236\u94FE\u63A5",
         copyError: "\u590D\u5236\u9519\u8BEF",
-        copied: "\u5DF2\u590D\u5236"
+        copied: "\u5DF2\u590D\u5236",
+        eta: "\u5269\u4F59",
+        merging: "\u5408\u5E76\u4E2D",
+        converting: "\u8F6C\u7801\u4E2D",
+        remove: "\u5220\u9664\u8BB0\u5F55"
       },
       download: {
         fetchingInfo: "\u6B63\u5728\u83B7\u53D6\u89C6\u9891\u4FE1\u606F...",
@@ -4629,7 +4907,10 @@ var require_zh_CN = __commonJS({
         downloadFailed: "\u4E0B\u8F7D\u5931\u8D25",
         versionInstalled: "\u7248\u672C\uFF1A{{version}}",
         versionUpdate: "{{from}} \u2192 {{to}}",
-        progressText: "\u6B63\u5728\u4E0B\u8F7D... {{percent}}%"
+        progressText: "\u6B63\u5728\u4E0B\u8F7D... {{percent}}%",
+        threadCountLabel: "\u4E0B\u8F7D\u7EBF\u7A0B\u6570",
+        threadCountHint: "\u5206\u7247\u89C6\u9891\uFF08HLS/DASH\uFF09\u7684\u5E76\u53D1\u7EBF\u7A0B\u6570\u3002\u4E0D\u4E00\u5B9A\u8D8A\u5FEB\uFF1B\u76F4\u94FE MP4 \u5355\u8FDE\u63A5\u3002",
+        threadAuto: "\u81EA\u52A8\uFF08\u9ED8\u8BA4\uFF09"
       }
     };
   }
@@ -4669,6 +4950,7 @@ async function importToEagle(videoPath, metadata, sourceUrl) {
 var AUTO_ADD_SOURCE_KEY = "eagle-video-downloader.autoAddSource";
 var MAX_RESOLUTION_KEY = "eagle-video-downloader.maxResolution";
 var MAX_FRAMERATE_KEY = "eagle-video-downloader.maxFramerate";
+var THREAD_COUNT_KEY = "eagle-video-downloader.threadCount";
 function getAutoAddSourcePref() {
   const val = localStorage.getItem(AUTO_ADD_SOURCE_KEY);
   return val === null ? true : val === "true";
@@ -4698,6 +4980,14 @@ function setMaxFrameratePref(value) {
     framerate: val
   });
 }
+function getThreadCountPref() {
+  return localStorage.getItem(THREAD_COUNT_KEY) || "auto";
+}
+function setThreadCountPref(value) {
+  const val = value || "auto";
+  localStorage.setItem(THREAD_COUNT_KEY, val);
+  downloader.setThreadCount(val);
+}
 var downloadQueue = [];
 var MAX_CONCURRENT = 3;
 var activeCount = 0;
@@ -4722,16 +5012,25 @@ function applyTranslations() {
   const urlInput = document.getElementById("urlInput");
   if (urlInput)
     urlInput.placeholder = i18next2.t("ui.inputPlaceholder");
+  const pinButton = document.getElementById("pinButton");
+  if (pinButton)
+    pinButton.title = i18next2.t("ui.pin");
+  const pasteButton = document.getElementById("pasteButton");
+  if (pasteButton)
+    pasteButton.title = i18next2.t("ui.paste");
 }
 eagle.onPluginCreate(async (plugin) => {
   await initI18n();
   applyTranslations();
   ui.updateTheme();
   setupEventListeners();
+  setupWindowState();
+  startIngestBridge();
   downloader.setQualityPrefs({
     resolution: getMaxResolutionPref(),
     framerate: getMaxFrameratePref()
   });
+  downloader.setThreadCount(getThreadCountPref());
   await initializeBinaries();
 });
 eagle.onThemeChanged(() => {
@@ -4740,8 +5039,10 @@ eagle.onThemeChanged(() => {
 function setupEventListeners() {
   var _a, _b;
   document.getElementById("closeButton").addEventListener("click", () => {
+    saveWindowSize();
     window.close();
   });
+  setupPinButton();
   document.getElementById("depsEntryBtn").addEventListener("click", openDepsPage);
   document.getElementById("depsBackBtn").addEventListener("click", closeDepsPage);
   (_a = document.getElementById("tabBtnSettings")) == null ? void 0 : _a.addEventListener("click", () => {
@@ -4766,6 +5067,12 @@ function setupEventListeners() {
   if (maxFpsSelect) {
     maxFpsSelect.addEventListener("change", (e) => {
       setMaxFrameratePref(e.target.value);
+    });
+  }
+  const threadSelect = document.getElementById("threadCountSelect");
+  if (threadSelect) {
+    threadSelect.addEventListener("change", (e) => {
+      setThreadCountPref(e.target.value);
     });
   }
   document.getElementById("ytdlpActions").addEventListener("click", (e) => {
@@ -4797,6 +5104,8 @@ function setupEventListeners() {
       copyError(id);
     if (action === "copy")
       copyUrl(id);
+    if (action === "delete")
+      deleteDownloadItem(id);
   });
 }
 async function openEagleFfmpegStore() {
@@ -4828,7 +5137,8 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     maxResolutionPref: getMaxResolutionPref(),
-    maxFrameratePref: getMaxFrameratePref()
+    maxFrameratePref: getMaxFrameratePref(),
+    threadCountPref: getThreadCountPref()
   });
   ui.updateDepsBadge(true);
   loadDepsInfo();
@@ -4873,6 +5183,9 @@ function addToQueue(url) {
     state: "waiting",
     progress: 0,
     speed: "",
+    eta: "",
+    phase: null,
+    processingPercent: void 0,
     error: null
   };
   downloadQueue.push(item);
@@ -4921,12 +5234,25 @@ async function executeDownload(item) {
     const videoInfo = await downloader.getVideoInfo(item.url);
     item.title = videoInfo.title || i18next2.t("error.untitledVideo");
     item.state = "downloading";
+    item.phase = null;
+    item.processingPercent = void 0;
+    item.eta = "";
     ui.updateQueueItem(item.id, item);
     const results = await downloader.downloadVideo(
       item.url,
       (progress) => {
-        item.progress = progress.percent || 0;
-        item.speed = progress.currentSpeed || "";
+        if (progress.phase) {
+          item.phase = progress.phase;
+          item.processingPercent = void 0;
+        }
+        if (typeof progress.processingPercent === "number")
+          item.processingPercent = progress.processingPercent;
+        if (typeof progress.percent === "number" && !progress.phase)
+          item.progress = progress.percent;
+        if (typeof progress.currentSpeed === "string")
+          item.speed = progress.currentSpeed;
+        if (typeof progress.eta === "string")
+          item.eta = progress.eta;
         ui.updateQueueItem(item.id, item);
       },
       null,
@@ -4935,6 +5261,9 @@ async function executeDownload(item) {
     item.state = "completed";
     item.progress = 100;
     item.speed = "";
+    item.eta = "";
+    item.phase = null;
+    item.processingPercent = void 0;
     ui.updateQueueItem(item.id, item);
     for (const result of results) {
       const sourceUrl = getAutoAddSourcePref() ? item.url : void 0;
@@ -4958,6 +5287,9 @@ function retryDownload(id) {
   item.progress = 0;
   item.error = null;
   item.speed = "";
+  item.eta = "";
+  item.phase = null;
+  item.processingPercent = void 0;
   ui.updateQueueItem(item.id, item);
   processQueue();
 }
@@ -4985,7 +5317,8 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     maxResolutionPref: getMaxResolutionPref(),
-    maxFrameratePref: getMaxFrameratePref()
+    maxFrameratePref: getMaxFrameratePref(),
+    threadCountPref: getThreadCountPref()
   });
   loadDepsInfo();
 }
@@ -5070,5 +5403,202 @@ async function copyUrl(id) {
   } catch (error) {
     console.error("Failed to copy URL:", error);
   }
+}
+function deleteDownloadItem(id) {
+  const index = downloadQueue.findIndex((entry) => entry.id === id);
+  if (index < 0)
+    return;
+  if (!ui.canDeleteQueueItem(downloadQueue[index]))
+    return;
+  downloadQueue.splice(index, 1);
+  ui.removeQueueItem(id);
+}
+var WINDOW_SIZE_KEY = "evd.windowSize";
+function getSavedWindowSize() {
+  try {
+    const raw = localStorage.getItem(WINDOW_SIZE_KEY);
+    if (!raw)
+      return null;
+    const size = JSON.parse(raw);
+    const width = Number(size && size.width);
+    const height = Number(size && size.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height))
+      return null;
+    if (width < 320 || height < 320 || width > 4e3 || height > 4e3)
+      return null;
+    return { width: Math.round(width), height: Math.round(height) };
+  } catch (e) {
+    return null;
+  }
+}
+function saveWindowSize() {
+  try {
+    const width = Math.round(window.innerWidth);
+    const height = Math.round(window.innerHeight);
+    if (width > 0 && height > 0) {
+      localStorage.setItem(WINDOW_SIZE_KEY, JSON.stringify({ width, height }));
+    }
+  } catch (e) {
+  }
+}
+function setupWindowState() {
+  const saved = getSavedWindowSize();
+  const api = typeof eagle !== "undefined" && eagle.window ? eagle.window : null;
+  if (saved && api && typeof api.setSize === "function") {
+    Promise.resolve().then(async () => {
+      try {
+        const current = typeof api.getSize === "function" ? await api.getSize() : null;
+        const width = Array.isArray(current) ? current[0] : current && current.width;
+        const height = Array.isArray(current) ? current[1] : current && current.height;
+        if (width == null || height == null || Math.abs(width - saved.width) > 2 || Math.abs(height - saved.height) > 2) {
+          await api.setSize(saved.width, saved.height);
+        }
+      } catch (e) {
+      }
+    });
+  }
+  let saveTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveWindowSize, 300);
+  });
+  window.addEventListener("beforeunload", saveWindowSize);
+}
+var INGEST_PORT = 43110;
+var INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com"];
+function isIngestUrlAllowed(value) {
+  try {
+    const parsed = new URL(String(value || ""));
+    if (parsed.protocol !== "https:")
+      return false;
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    return INGEST_ALLOWED_HOSTS.some((allowed) => host === allowed || host.endsWith("." + allowed));
+  } catch (e) {
+    return false;
+  }
+}
+function writeBridgeResponse(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  });
+  res.end(body);
+}
+function startIngestBridge() {
+  if (startIngestBridge.server)
+    return startIngestBridge.server;
+  let http;
+  try {
+    http = require("http");
+  } catch (e) {
+    return null;
+  }
+  const server = http.createServer((req, res) => {
+    const pathname = String(req.url || "/").split("?")[0];
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      });
+      res.end();
+      return;
+    }
+    if (pathname === "/ping") {
+      writeBridgeResponse(res, 200, { ok: true, app: "eagle-video-downloader", ready: !!isInitialized });
+      return;
+    }
+    if (pathname !== "/ingest" || req.method !== "POST") {
+      writeBridgeResponse(res, 404, { ok: false, error: "not-found" });
+      return;
+    }
+    let body = "";
+    let tooLarge = false;
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 16 * 1024) {
+        tooLarge = true;
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (tooLarge)
+        return;
+      let payload = null;
+      try {
+        payload = JSON.parse(body || "{}");
+      } catch (e) {
+        payload = null;
+      }
+      const target = payload && typeof payload.url === "string" ? payload.url.trim() : "";
+      if (!target || !isIngestUrlAllowed(target)) {
+        writeBridgeResponse(res, 400, { ok: false, error: "invalid-url" });
+        return;
+      }
+      if (!isInitialized) {
+        writeBridgeResponse(res, 503, { ok: false, error: "not-ready" });
+        return;
+      }
+      addToQueue(target);
+      try {
+        if (eagle.window && typeof eagle.window.restore === "function")
+          eagle.window.restore();
+        if (eagle.window && typeof eagle.window.focus === "function")
+          eagle.window.focus();
+      } catch (e) {
+      }
+      writeBridgeResponse(res, 200, { ok: true, url: target });
+    });
+    req.on("error", () => {
+    });
+  });
+  server.on("error", (error) => {
+    console.warn("[ingest] bridge error:", error && error.message);
+  });
+  server.listen(INGEST_PORT, "127.0.0.1");
+  startIngestBridge.server = server;
+  return server;
+}
+function setupPinButton() {
+  const pinButton = document.getElementById("pinButton");
+  if (!pinButton)
+    return;
+  const STORAGE_KEY = "evd.alwaysOnTop";
+  const api = typeof eagle !== "undefined" && eagle.window ? eagle.window : null;
+  const render = (pinned2) => {
+    pinButton.classList.toggle("active", pinned2);
+    pinButton.setAttribute("aria-pressed", pinned2 ? "true" : "false");
+  };
+  const apply = async (pinned2) => {
+    try {
+      if (api && typeof api.setAlwaysOnTop === "function") {
+        await api.setAlwaysOnTop(pinned2);
+      }
+    } catch (e) {
+      console.error("Failed to set always on top:", e);
+      return;
+    }
+    render(pinned2);
+    try {
+      localStorage.setItem(STORAGE_KEY, pinned2 ? "1" : "0");
+    } catch (e) {
+    }
+  };
+  let pinned = false;
+  try {
+    pinned = localStorage.getItem(STORAGE_KEY) === "1";
+  } catch (e) {
+  }
+  render(pinned);
+  if (pinned)
+    apply(true);
+  pinButton.addEventListener("click", () => {
+    pinned = !pinned;
+    apply(pinned);
+  });
 }
 module.exports = {};

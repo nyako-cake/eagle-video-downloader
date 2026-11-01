@@ -15,6 +15,7 @@ const siteAdapters = require("./sites");
 
 let maxResolution = "auto";
 let maxFramerate = "auto";
+let threadCount = 0;
 
 function setQualityPrefs({ resolution = "auto", framerate = "auto" } = {}) {
   maxResolution = resolution || "auto";
@@ -24,6 +25,59 @@ function setQualityPrefs({ resolution = "auto", framerate = "auto" } = {}) {
 /**
  * 根据分辨率和帧率设置构建 yt-dlp -f 格式选择器（支持自动向下兜底）
  */
+/**
+ * Concurrent fragment count (maps to yt-dlp --concurrent-fragments).
+ * Only affects segmented streams (HLS/DASH); progressive files ignore it.
+ */
+function setThreadCount(value) {
+  const parsed = parseInt(value, 10);
+  threadCount = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Estimate merge/transcode progress by watching the output file grow against
+ * the total size of the downloaded fragments (yt-dlp and ffmpeg do not report
+ * post-processing progress).
+ */
+function startProcessingWatcher(outputDir, sanitizedTitle, onProgress) {
+  const base = escapeRegExp(sanitizedTitle);
+  const finalRe = new RegExp(`^${base}_\\d+\\.[^.]+$`);
+  const partRe = new RegExp(`^${base}_\\d+\\.[^.]{1,8}\\.[^.]+$`);
+  const timer = setInterval(() => {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(outputDir);
+    } catch (e) {
+      return;
+    }
+    const finals = entries.filter((name) => finalRe.test(name) && !partRe.test(name));
+    if (!finals.length) return;
+    let expected = 0;
+    for (const name of entries) {
+      if (!partRe.test(name)) continue;
+      try {
+        expected += fs.statSync(path.join(outputDir, name)).size;
+      } catch (e) {}
+    }
+    if (expected <= 0) return;
+    let written = 0;
+    for (const name of finals) {
+      try {
+        written += fs.statSync(path.join(outputDir, name)).size;
+      } catch (e) {}
+    }
+    if (onProgress) {
+      onProgress({ processingPercent: Math.max(0, Math.min(99, Math.round((written / expected) * 100))) });
+    }
+  }, 400);
+  if (timer.unref) timer.unref();
+  return { stop: () => clearInterval(timer) };
+}
+
 function buildFormatSelector(resolution, framerate) {
   const heightFilter = resolution && resolution !== "auto" ? `[height<=${resolution}]` : "";
   const fpsFilter = framerate && framerate !== "auto" ? `[fps<=${framerate}]` : "";
@@ -402,6 +456,10 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
     ...siteAdapters.getSiteArgs(targetUrl),
   ];
 
+  if (threadCount > 0) {
+    args.push("-N", String(threadCount));
+  }
+
   const ffmpeg = getFfmpegPath();
   if (ffmpeg && fs.existsSync(ffmpeg)) {
     args.push("--ffmpeg-location", path.dirname(ffmpeg));
@@ -411,7 +469,32 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
 
   const filesBefore = new Set(fs.existsSync(outputDir) ? fs.readdirSync(outputDir) : []);
 
-  await execYtDlp(args, onProgress, null, { targetUrl });
+  let processingPhase = null;
+  let processingWatcher = null;
+  let pendingOutput = "";
+  const handleOutput = (chunk) => {
+    const text = pendingOutput + String(chunk || "");
+    pendingOutput = text.slice(-32);
+    let next = null;
+    if (/\[Merger\]|Merging formats/i.test(text)) {
+      next = "merge";
+    } else if (/\[VideoConvertor\]|Converting video|\[Fixup/i.test(text)) {
+      next = "convert";
+    }
+    if (next && next !== processingPhase) {
+      processingPhase = next;
+      if (onProgress) onProgress({ phase: next });
+      if (!processingWatcher) {
+        processingWatcher = startProcessingWatcher(outputDir, sanitizedTitle, onProgress);
+      }
+    }
+  };
+
+  try {
+    await execYtDlp(args, onProgress, handleOutput, { targetUrl });
+  } finally {
+    if (processingWatcher) processingWatcher.stop();
+  }
 
   const filesAfter = fs.readdirSync(outputDir);
   const newFiles = filesAfter.filter(f => !filesBefore.has(f) && f.startsWith(sanitizedTitle));
@@ -445,5 +528,6 @@ module.exports = {
   getVideoInfo,
   cleanup,
   setQualityPrefs,
+  setThreadCount,
   buildFormatSelector,
 };

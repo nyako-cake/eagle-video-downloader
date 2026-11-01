@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      width: 280px;
+      padding: 14px 16px 16px;
+      background: #181921;
+      color: #fff;
+      font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .sub {
+      margin: 0 0 12px;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #262733;
+      margin-bottom: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8d8e95;
+      flex-shrink: 0;
+    }
+
+    .dot.ok {
+      background: #4bd952;
+    }
+
+    .dot.warn {
+      background: #f0a830;
+    }
+
+    .dot.err {
+      background: #f56c6c;
+    }
+
+    .name {
+      flex: 1;
+    }
+
+    .hint {
+      margin: 10px 0 0;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 10px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: #3197ff;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Eagle 视频下载助手</h1>
+  <p class="sub">在 X（Twitter）的视频 / 动图下方点「保存到 Eagle」即可。</p>
+
+  <div class="row">
+    <span id="pluginDot" class="dot"></span>
+    <span class="name">Eagle 插件</span>
+    <span id="pluginText">检测中…</span>
+  </div>
+
+  <p class="hint">插件没打开时，会退回到 Eagle 本地 API 直接收直链（仅限 mp4 直链，NSFW/需要登录的推文请打开插件）。</p>
+  <button id="refresh">重新检测</button>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

@@ -17,7 +17,9 @@
     "cancel": "Cancel",
     "addToQueue": "Add to Queue",
     "loading": "Loading...",
-    "successDownload": "Successful download"
+    "successDownload": "Successful download",
+    "paste": "Paste from clipboard",
+    "pin": "Always on Top"
   },
   "queue": {
     "waiting": "Waiting...",
@@ -28,7 +30,11 @@
     "retry": "Retry",
     "copyUrl": "Copy URL",
     "copyError": "Copy Error",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "eta": "ETA",
+    "merging": "Merging",
+    "converting": "Converting",
+    "remove": "Remove from list"
   },
   "download": {
     "fetchingInfo": "Fetching video information...",
@@ -117,6 +123,9 @@
     "downloadFailed": "Download failed",
     "versionInstalled": "Version: {{version}}",
     "versionUpdate": "{{from}} → {{to}}",
-    "progressText": "Downloading... {{percent}}%"
+    "progressText": "Downloading... {{percent}}%",
+    "threadCountLabel": "Download Threads",
+    "threadCountHint": "Concurrent fragments for HLS/DASH. Not always faster; direct MP4 stays single-connection.",
+    "threadAuto": "Auto (Default)"
   }
 }

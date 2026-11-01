@@ -82,6 +82,30 @@ function setupInputBar() {
   urlInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") handleSubmit();
   });
+
+  const pasteButton = document.getElementById("pasteButton");
+  if (pasteButton) {
+    pasteButton.addEventListener("click", () => {
+      let clipboardText = "";
+      try {
+        clipboardText = eagle && eagle.clipboard && typeof eagle.clipboard.readText === "function"
+          ? eagle.clipboard.readText()
+          : "";
+      } catch (e) {
+        clipboardText = "";
+      }
+      clipboardText = String(clipboardText || "").trim();
+      const urlMatch = clipboardText.match(/https:\/\/[^\s"'<>]+/i);
+      const value = urlMatch ? urlMatch[0] : clipboardText;
+      if (!value) return;
+      urlInput.value = value;
+      urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+      urlInput.focus();
+      try {
+        urlInput.setSelectionRange(value.length, value.length);
+      } catch (e) {}
+    });
+  }
 }
 
 /**
@@ -106,6 +130,21 @@ function setInputBarState(state, errorMessage = "") {
 /**
  * 追加单个队列项到列表末尾
  */
+/**
+ * Whether a queue record may be removed (active downloads are protected).
+ */
+function canDeleteQueueItem(item) {
+  return !!item && item.state !== "preparing" && item.state !== "downloading";
+}
+
+/**
+ * Remove a queue record from the list.
+ */
+function removeQueueItem(id) {
+  const el = document.querySelector(`.download-item[data-id="${id}"]`);
+  if (el) el.remove();
+}
+
 function appendQueueItem(item) {
   const list = document.querySelector(".download-list");
   if (!list) return;
@@ -124,13 +163,14 @@ function createQueueItemEl(item) {
 
   const isError = item.state === "error";
   el.innerHTML = `
+    <button class="item-delete" data-action="delete" data-id="${item.id}" title="${escapeHtml(i18next.t("queue.remove"))}">&#215;</button>
     <div class="item-title">${escapeHtml(item.title)}</div>
     <div class="item-progress-bar">
       <div class="item-progress-fill" style="width: ${item.progress}%"></div>
     </div>
-    <div class="item-footer ${isError ? "" : "hidden"}">
+    <div class="item-footer">
       <span class="item-meta">${escapeHtml(getMetaText(item))}</span>
-      <div class="item-actions">
+      <div class="item-actions${isError ? "" : " hidden"}">
         <button class="item-action-btn" data-action="retry" data-id="${item.id}">${i18next.t("queue.retry")}</button>
         <button class="item-action-btn" data-action="copyError" data-id="${item.id}" id="copy-error-btn-${item.id}">${i18next.t("queue.copyError")}</button>
         <button class="item-action-btn" data-action="copy" data-id="${item.id}" id="copy-btn-${item.id}">${i18next.t("queue.copyUrl")}</button>
@@ -153,17 +193,22 @@ function updateQueueItem(id, data) {
   const titleEl = el.querySelector(".item-title");
   if (titleEl) titleEl.textContent = data.title;
 
+  const bar = el.querySelector(".item-progress-bar");
   const fill = el.querySelector(".item-progress-fill");
-  if (fill) fill.style.width = `${data.progress}%`;
+  const isProcessing = data.state === "downloading" && (data.phase === "merge" || data.phase === "convert");
+  const hasProcessingPercent = isProcessing && typeof data.processingPercent === "number";
+  const width = isProcessing ? (hasProcessingPercent ? data.processingPercent : 100) : data.progress;
+  if (bar) bar.classList.toggle("indeterminate", isProcessing && !hasProcessingPercent);
+  if (fill) fill.style.width = `${Math.max(0, Math.min(100, width || 0))}%`;
 
   const footer = el.querySelector(".item-footer");
-  const isError = data.state === "error";
   if (footer) {
-    footer.classList.toggle("hidden", !isError);
-    if (isError) {
-      const meta = footer.querySelector(".item-meta");
-      if (meta) meta.textContent = getMetaText(data);
-    }
+    const meta = footer.querySelector(".item-meta");
+    if (meta) meta.textContent = getMetaText(data);
+    const actions = footer.querySelector(".item-actions");
+    if (actions) actions.classList.toggle("hidden", data.state !== "error");
+    const deleteBtn = el.querySelector(".item-delete");
+    if (deleteBtn) deleteBtn.disabled = !canDeleteQueueItem(data);
   }
 }
 
@@ -195,6 +240,20 @@ function showCopiedErrorFeedback(id) {
 function getMetaText(item) {
   if (item.state === "error") {
     return item.error || i18next.t("queue.error");
+  }
+  if (item.state === "completed") {
+    return i18next.t("queue.completed");
+  }
+  if (item.phase === "merge" || item.phase === "convert") {
+    const label = i18next.t(item.phase === "merge" ? "queue.merging" : "queue.converting");
+    return typeof item.processingPercent === "number" ? `${label} ${Math.round(item.processingPercent)}%` : `${label}...`;
+  }
+  if (item.state === "downloading") {
+    const parts = [];
+    if (typeof item.progress === "number") parts.push(`${item.progress.toFixed(1)}%`);
+    if (item.speed) parts.push(item.speed);
+    if (item.eta) parts.push(`${i18next.t("queue.eta")} ${item.eta}`);
+    return parts.join(" \u00B7 ");
   }
   return "";
 }
@@ -260,7 +319,7 @@ function switchSubpageTab(tabName) {
  * @param {boolean} opts.gating - 是否为「门槛模式」（依赖未就绪，强制停留在此页，隐藏返回按钮）
  * @param {boolean} opts.autoAddSourcePref - 是否自动设置 Eagle 数据来源
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnDeps = document.getElementById("tabBtnDeps");
@@ -273,6 +332,9 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const maxFpsLabel = document.getElementById("maxFramerateLabel");
   const maxFpsHint = document.getElementById("maxFramerateHint");
   const maxFpsSelect = document.getElementById("maxFramerateSelect");
+  const threadLabel = document.getElementById("threadCountLabel");
+  const threadHint = document.getElementById("threadCountHint");
+  const threadSelect = document.getElementById("threadCountSelect");
   const notice = document.getElementById("depsNotice");
   const ytdlpDesc = document.getElementById("ytdlpDesc");
   const ffmpegDesc = document.getElementById("ffmpegDesc");
@@ -295,6 +357,13 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (maxFpsSelect) {
     if (maxFpsSelect.options[0]) maxFpsSelect.options[0].textContent = i18next.t("deps.fpsAuto");
     maxFpsSelect.value = maxFrameratePref || "auto";
+  }
+
+  if (threadLabel) threadLabel.textContent = i18next.t("deps.threadCountLabel");
+  if (threadHint) threadHint.textContent = i18next.t("deps.threadCountHint");
+  if (threadSelect) {
+    if (threadSelect.options[0]) threadSelect.options[0].textContent = i18next.t("deps.threadAuto");
+    threadSelect.value = String(threadCountPref || "auto");
   }
 
   if (notice) notice.textContent = i18next.t("deps.setupRequired");
@@ -498,6 +567,8 @@ module.exports = {
   updateQueueItem,
   showCopiedFeedback,
   showCopiedErrorFeedback,
+  canDeleteQueueItem,
+  removeQueueItem,
   showDepsPage,
   hideDepsPage,
   setDepsGating,

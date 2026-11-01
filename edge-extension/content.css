@@ -1,0 +1,62 @@
+/* Eagle 视频下载助手 — 样式（尽量收敛，避免影响 X 自身布局） */
+.evd-eagle-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 0 2px;
+  padding: 0 2px;
+  pointer-events: auto;
+}
+
+.evd-eagle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.evd-eagle-btn:hover {
+  background: rgba(49, 151, 255, 0.85);
+  border-color: rgba(49, 151, 255, 0.95);
+}
+
+.evd-eagle-btn:active {
+  transform: scale(0.98);
+}
+
+.evd-eagle-btn.is-ok {
+  background: rgba(75, 217, 82, 0.85);
+  border-color: rgba(75, 217, 82, 0.95);
+}
+
+.evd-eagle-btn.is-error {
+  background: rgba(245, 108, 108, 0.85);
+  border-color: rgba(245, 108, 108, 0.95);
+}
+
+.evd-eagle-btn[data-state="sending"] {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.evd-eagle-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+html[data-evd-color-scheme="light"] .evd-eagle-btn {
+  background: rgba(255, 255, 255, 0.75);
+  color: #0f1419;
+  border-color: rgba(0, 0, 0, 0.12);
+}

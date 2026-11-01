@@ -1,6 +1,6 @@
 {
   "id": "75328212-f4fd-4152-952d-26aa1bfcedf9",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "platform": "all",
   "arch": "all",
   "name": "{{manifest.app.name}}",
@@ -25,7 +25,9 @@
     "url": "index.html",
     "width": 400,
     "height": 520,
-    "resizable": false,
+    "minWidth": 360,
+    "minHeight": 420,
+    "resizable": true,
     "frame": false,
     "vibrancy": true
   }

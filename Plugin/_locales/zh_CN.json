@@ -17,7 +17,9 @@
     "cancel": "取消",
     "addToQueue": "添加到队列",
     "loading": "加载中...",
-    "successDownload": "下载成功"
+    "successDownload": "下载成功",
+    "paste": "粘贴剪贴板内容",
+    "pin": "窗口置顶"
   },
   "queue": {
     "waiting": "等待中...",
@@ -28,7 +30,11 @@
     "retry": "重试",
     "copyUrl": "复制链接",
     "copyError": "复制错误",
-    "copied": "已复制"
+    "copied": "已复制",
+    "eta": "剩余",
+    "merging": "合并中",
+    "converting": "转码中",
+    "remove": "删除记录"
   },
   "download": {
     "fetchingInfo": "正在获取视频信息...",
@@ -117,6 +123,9 @@
     "downloadFailed": "下载失败",
     "versionInstalled": "版本：{{version}}",
     "versionUpdate": "{{from}} → {{to}}",
-    "progressText": "正在下载... {{percent}}%"
+    "progressText": "正在下载... {{percent}}%",
+    "threadCountLabel": "下载线程数",
+    "threadCountHint": "分片视频（HLS/DASH）的并发线程数。不一定越快；直链 MP4 单连接。",
+    "threadAuto": "自动（默认）"
   }
 }

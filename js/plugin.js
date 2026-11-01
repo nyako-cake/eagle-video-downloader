@@ -42,6 +42,7 @@ const AUTO_ADD_SOURCE_KEY = "eagle-video-downloader.autoAddSource";
 // 清晰度与帧率偏好存储 key
 const MAX_RESOLUTION_KEY = "eagle-video-downloader.maxResolution";
 const MAX_FRAMERATE_KEY = "eagle-video-downloader.maxFramerate";
+const THREAD_COUNT_KEY = "eagle-video-downloader.threadCount";
 
 /**
  * 获取用户是否自动设置 Eagle 数据来源 (默认 true)
@@ -96,6 +97,22 @@ function setMaxFrameratePref(value) {
   });
 }
 
+/**
+ * 获取下载线程数偏好（"auto" 表示交给 yt-dlp 默认）
+ */
+function getThreadCountPref() {
+  return localStorage.getItem(THREAD_COUNT_KEY) || "auto";
+}
+
+/**
+ * 保存下载线程数偏好
+ */
+function setThreadCountPref(value) {
+  const val = value || "auto";
+  localStorage.setItem(THREAD_COUNT_KEY, val);
+  downloader.setThreadCount(val);
+}
+
 // 下载队列
 const downloadQueue = [];
 const MAX_CONCURRENT = 3;
@@ -131,6 +148,12 @@ function applyTranslations() {
 
   const urlInput = document.getElementById("urlInput");
   if (urlInput) urlInput.placeholder = i18next.t("ui.inputPlaceholder");
+
+  const pinButton = document.getElementById("pinButton");
+  if (pinButton) pinButton.title = i18next.t("ui.pin");
+
+  const pasteButton = document.getElementById("pasteButton");
+  if (pasteButton) pasteButton.title = i18next.t("ui.paste");
 }
 
 /**
@@ -141,10 +164,13 @@ eagle.onPluginCreate(async (plugin) => {
   applyTranslations();
   ui.updateTheme();
   setupEventListeners();
+  setupWindowState();
+  startIngestBridge();
   downloader.setQualityPrefs({
     resolution: getMaxResolutionPref(),
     framerate: getMaxFrameratePref(),
   });
+  downloader.setThreadCount(getThreadCountPref());
   await initializeBinaries();
 });
 
@@ -160,8 +186,11 @@ eagle.onThemeChanged(() => {
  */
 function setupEventListeners() {
   document.getElementById("closeButton").addEventListener("click", () => {
+    saveWindowSize();
     window.close();
   });
+
+  setupPinButton();
 
   document.getElementById("depsEntryBtn").addEventListener("click", openDepsPage);
   document.getElementById("depsBackBtn").addEventListener("click", closeDepsPage);
@@ -197,6 +226,14 @@ function setupEventListeners() {
     });
   }
 
+  // 下载线程数切换
+  const threadSelect = document.getElementById("threadCountSelect");
+  if (threadSelect) {
+    threadSelect.addEventListener("change", (e) => {
+      setThreadCountPref(e.target.value);
+    });
+  }
+
   // yt-dlp 操作按钮事件委托
   document.getElementById("ytdlpActions").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-ytdlp-action]");
@@ -227,6 +264,7 @@ function setupEventListeners() {
     if (action === "retry") retryDownload(id);
     if (action === "copyError") copyError(id);
     if (action === "copy") copyUrl(id);
+    if (action === "delete") deleteDownloadItem(id);
   });
 }
 
@@ -272,6 +310,7 @@ async function initializeBinaries() {
     autoAddSourcePref: getAutoAddSourcePref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
+    threadCountPref: getThreadCountPref(),
   });
   ui.updateDepsBadge(true);
   loadDepsInfo();
@@ -333,6 +372,9 @@ function addToQueue(url) {
     state: "waiting",
     progress: 0,
     speed: "",
+    eta: "",
+    phase: null,
+    processingPercent: undefined,
     error: null,
   };
 
@@ -393,13 +435,22 @@ async function executeDownload(item) {
     const videoInfo = await downloader.getVideoInfo(item.url);
     item.title = videoInfo.title || i18next.t("error.untitledVideo");
     item.state = "downloading";
+    item.phase = null;
+    item.processingPercent = undefined;
+    item.eta = "";
     ui.updateQueueItem(item.id, item);
 
     const results = await downloader.downloadVideo(
       item.url,
       (progress) => {
-        item.progress = progress.percent || 0;
-        item.speed = progress.currentSpeed || "";
+        if (progress.phase) {
+          item.phase = progress.phase;
+          item.processingPercent = undefined;
+        }
+        if (typeof progress.processingPercent === "number") item.processingPercent = progress.processingPercent;
+        if (typeof progress.percent === "number" && !progress.phase) item.progress = progress.percent;
+        if (typeof progress.currentSpeed === "string") item.speed = progress.currentSpeed;
+        if (typeof progress.eta === "string") item.eta = progress.eta;
         ui.updateQueueItem(item.id, item);
       },
       null,
@@ -409,6 +460,9 @@ async function executeDownload(item) {
     item.state = "completed";
     item.progress = 100;
     item.speed = "";
+    item.eta = "";
+    item.phase = null;
+    item.processingPercent = undefined;
     ui.updateQueueItem(item.id, item);
 
     for (const result of results) {
@@ -437,6 +491,9 @@ function retryDownload(id) {
   item.progress = 0;
   item.error = null;
   item.speed = "";
+  item.eta = "";
+  item.phase = null;
+  item.processingPercent = undefined;
   ui.updateQueueItem(item.id, item);
   processQueue();
 }
@@ -476,6 +533,7 @@ function openDepsPage() {
     autoAddSourcePref: getAutoAddSourcePref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
+    threadCountPref: getThreadCountPref(),
   });
   loadDepsInfo();
 }
@@ -588,4 +646,221 @@ async function copyUrl(id) {
   }
 }
 
+/**
+ * 删除一条下载记录（正在下载的任务不允许删除）
+ */
+function deleteDownloadItem(id) {
+  const index = downloadQueue.findIndex((entry) => entry.id === id);
+  if (index < 0) return;
+  if (!ui.canDeleteQueueItem(downloadQueue[index])) return;
+  downloadQueue.splice(index, 1);
+  ui.removeQueueItem(id);
+}
+
+// ---------------------------------------------------------------------------
+// 窗口尺寸记忆
+// ---------------------------------------------------------------------------
+const WINDOW_SIZE_KEY = "evd.windowSize";
+
+function getSavedWindowSize() {
+  try {
+    const raw = localStorage.getItem(WINDOW_SIZE_KEY);
+    if (!raw) return null;
+    const size = JSON.parse(raw);
+    const width = Number(size && size.width);
+    const height = Number(size && size.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+    if (width < 320 || height < 320 || width > 4000 || height > 4000) return null;
+    return { width: Math.round(width), height: Math.round(height) };
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveWindowSize() {
+  try {
+    const width = Math.round(window.innerWidth);
+    const height = Math.round(window.innerHeight);
+    if (width > 0 && height > 0) {
+      localStorage.setItem(WINDOW_SIZE_KEY, JSON.stringify({ width, height }));
+    }
+  } catch (e) {}
+}
+
+/**
+ * 启动时恢复上次窗口尺寸，并在缩放 / 关闭时保存
+ */
+function setupWindowState() {
+  const saved = getSavedWindowSize();
+  const api = typeof eagle !== "undefined" && eagle.window ? eagle.window : null;
+  if (saved && api && typeof api.setSize === "function") {
+    Promise.resolve().then(async () => {
+      try {
+        const current = typeof api.getSize === "function" ? await api.getSize() : null;
+        const width = Array.isArray(current) ? current[0] : current && current.width;
+        const height = Array.isArray(current) ? current[1] : current && current.height;
+        if (width == null || height == null || Math.abs(width - saved.width) > 2 || Math.abs(height - saved.height) > 2) {
+          await api.setSize(saved.width, saved.height);
+        }
+      } catch (e) {}
+    });
+  }
+
+  let saveTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveWindowSize, 300);
+  });
+  window.addEventListener("beforeunload", saveWindowSize);
+}
+
+// ---------------------------------------------------------------------------
+// 本机桥接：接收浏览器扩展推送的链接（仅监听 127.0.0.1）
+// ---------------------------------------------------------------------------
+const INGEST_PORT = 43110;
+const INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com"];
+
+function isIngestUrlAllowed(value) {
+  try {
+    const parsed = new URL(String(value || ""));
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    return INGEST_ALLOWED_HOSTS.some((allowed) => host === allowed || host.endsWith("." + allowed));
+  } catch (e) {
+    return false;
+  }
+}
+
+function writeBridgeResponse(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
+  res.end(body);
+}
+
+function startIngestBridge() {
+  if (startIngestBridge.server) return startIngestBridge.server;
+  let http;
+  try {
+    http = require("http");
+  } catch (e) {
+    return null;
+  }
+
+  const server = http.createServer((req, res) => {
+    const pathname = String(req.url || "/").split("?")[0];
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
+      res.end();
+      return;
+    }
+
+    if (pathname === "/ping") {
+      writeBridgeResponse(res, 200, { ok: true, app: "eagle-video-downloader", ready: !!isInitialized });
+      return;
+    }
+
+    if (pathname !== "/ingest" || req.method !== "POST") {
+      writeBridgeResponse(res, 404, { ok: false, error: "not-found" });
+      return;
+    }
+
+    let body = "";
+    let tooLarge = false;
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 16 * 1024) {
+        tooLarge = true;
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (tooLarge) return;
+      let payload = null;
+      try {
+        payload = JSON.parse(body || "{}");
+      } catch (e) {
+        payload = null;
+      }
+      const target = payload && typeof payload.url === "string" ? payload.url.trim() : "";
+      if (!target || !isIngestUrlAllowed(target)) {
+        writeBridgeResponse(res, 400, { ok: false, error: "invalid-url" });
+        return;
+      }
+      if (!isInitialized) {
+        writeBridgeResponse(res, 503, { ok: false, error: "not-ready" });
+        return;
+      }
+      addToQueue(target);
+      try {
+        if (eagle.window && typeof eagle.window.restore === "function") eagle.window.restore();
+        if (eagle.window && typeof eagle.window.focus === "function") eagle.window.focus();
+      } catch (e) {}
+      writeBridgeResponse(res, 200, { ok: true, url: target });
+    });
+    req.on("error", () => {});
+  });
+
+  server.on("error", (error) => {
+    console.warn("[ingest] bridge error:", error && error.message);
+  });
+  server.listen(INGEST_PORT, "127.0.0.1");
+  startIngestBridge.server = server;
+  return server;
+}
+
+/**
+ * Always-on-top toggle (state persisted in localStorage).
+ */
+function setupPinButton() {
+  const pinButton = document.getElementById("pinButton");
+  if (!pinButton) return;
+
+  const STORAGE_KEY = "evd.alwaysOnTop";
+  const api = typeof eagle !== "undefined" && eagle.window ? eagle.window : null;
+
+  const render = (pinned) => {
+    pinButton.classList.toggle("active", pinned);
+    pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
+  };
+
+  const apply = async (pinned) => {
+    try {
+      if (api && typeof api.setAlwaysOnTop === "function") {
+        await api.setAlwaysOnTop(pinned);
+      }
+    } catch (e) {
+      console.error("Failed to set always on top:", e);
+      return;
+    }
+    render(pinned);
+    try {
+      localStorage.setItem(STORAGE_KEY, pinned ? "1" : "0");
+    } catch (e) {}
+  };
+
+  let pinned = false;
+  try {
+    pinned = localStorage.getItem(STORAGE_KEY) === "1";
+  } catch (e) {}
+  render(pinned);
+  if (pinned) apply(true);
+
+  pinButton.addEventListener("click", () => {
+    pinned = !pinned;
+    apply(pinned);
+  });
+}
+
 module.exports = {};
+
