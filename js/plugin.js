@@ -202,6 +202,9 @@ function setupEventListeners() {
   document.getElementById("tabBtnDeps")?.addEventListener("click", () => {
     ui.switchSubpageTab("dependencies");
   });
+  document.getElementById("tabBtnAccount")?.addEventListener("click", () => {
+    ui.switchSubpageTab("account");
+  });
 
   // 自动设置 Eagle 数据来源切换
   const autoAddToggle = document.getElementById("autoAddSourceToggle");
@@ -249,6 +252,7 @@ function setupEventListeners() {
         return;
       }
       sankakuAuth.setStoredAuth(authInput.value);
+      ui.autoGrowTextarea(authInput);
       if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthSaved");
     });
   }

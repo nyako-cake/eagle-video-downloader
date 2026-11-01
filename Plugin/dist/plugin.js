@@ -3015,7 +3015,7 @@ var require_twitter = __commonJS({
     var { validateUrl, assertHostAllowed, secureHttpsGet } = require_net_guard();
     var STATUS_ID_RE = /\/(?:status|statuses)\/(\d+)/;
     var ALLOWED_MEDIA_DOMAINS = ["video.twimg.com"];
-    var RECOVERABLE_ERROR_RE = /No video formats found|No video could be found|TweetTombstone|NSFW|age.?restrict|not authorized|requires authentication/i;
+    var RECOVERABLE_ERROR_RE = /No video formats found|No video could be found|TweetTombstone|NSFW|age.?restrict|not authorized|requires authentication|Postprocessing|Invalid data found|Error opening input/i;
     function match(url) {
       try {
         const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
@@ -4475,6 +4475,19 @@ var require_downloader = __commonJS({
       };
       try {
         await execYtDlp(args, onProgress, handleOutput, { targetUrl });
+      } catch (error) {
+        const message = String(error && error.message || "");
+        const recoverable = /Postprocessing|Invalid data found|Error opening input/i.test(message);
+        if (!recoverable)
+          throw error;
+        const retryArgs = args.slice();
+        const mergeIndex = retryArgs.indexOf("--merge-output-format");
+        if (mergeIndex >= 0)
+          retryArgs.splice(mergeIndex, 2);
+        const formatIndex = retryArgs.indexOf("-f");
+        if (formatIndex >= 0)
+          retryArgs[formatIndex + 1] = "b/best";
+        await execYtDlp(retryArgs, onProgress, handleOutput, { targetUrl });
       } finally {
         if (processingWatcher)
           processingWatcher.stop();
@@ -4737,21 +4750,22 @@ var require_ui = __commonJS({
       badge.classList.toggle("hidden", !hasNotice);
     }
     function switchSubpageTab(tabName) {
-      const tabBtnSettings = document.getElementById("tabBtnSettings");
-      const tabBtnDeps = document.getElementById("tabBtnDeps");
-      const settingsPanel = document.getElementById("settingsPanel");
-      const depsPanel = document.getElementById("depsPanel");
-      if (tabName === "settings") {
-        tabBtnSettings == null ? void 0 : tabBtnSettings.classList.add("active");
-        tabBtnDeps == null ? void 0 : tabBtnDeps.classList.remove("active");
-        settingsPanel == null ? void 0 : settingsPanel.classList.remove("hidden");
-        depsPanel == null ? void 0 : depsPanel.classList.add("hidden");
-      } else {
-        tabBtnSettings == null ? void 0 : tabBtnSettings.classList.remove("active");
-        tabBtnDeps == null ? void 0 : tabBtnDeps.classList.add("active");
-        settingsPanel == null ? void 0 : settingsPanel.classList.add("hidden");
-        depsPanel == null ? void 0 : depsPanel.classList.remove("hidden");
+      var _a, _b;
+      const tabs = {
+        settings: { btn: document.getElementById("tabBtnSettings"), panel: document.getElementById("settingsPanel") },
+        dependencies: { btn: document.getElementById("tabBtnDeps"), panel: document.getElementById("depsPanel") },
+        account: { btn: document.getElementById("tabBtnAccount"), panel: document.getElementById("accountPanel") }
+      };
+      for (const [name, item] of Object.entries(tabs)) {
+        (_a = item.btn) == null ? void 0 : _a.classList.toggle("active", name === tabName);
+        (_b = item.panel) == null ? void 0 : _b.classList.toggle("hidden", name !== tabName);
       }
+    }
+    function autoGrowTextarea(el) {
+      if (!el)
+        return;
+      el.style.height = "auto";
+      el.style.height = Math.max(38, el.scrollHeight) + "px";
     }
     function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
@@ -4821,7 +4835,14 @@ var require_ui = __commonJS({
       if (authInput) {
         authInput.placeholder = i18next.t("deps.sankakuAuthPlaceholder");
         authInput.value = sankakuAuth2.getStoredAuth();
+        autoGrowTextarea(authInput);
+        if (authInput.dataset.growBound !== "1") {
+          authInput.dataset.growBound = "1";
+          authInput.addEventListener("input", () => autoGrowTextarea(authInput));
+        }
       }
+      if (tabBtnAccount)
+        tabBtnAccount.textContent = i18next.t("deps.tabAccount");
       if (authSave)
         authSave.textContent = i18next.t("deps.sankakuAuthSave");
       if (authClear)
@@ -5009,6 +5030,7 @@ var require_ui = __commonJS({
       hideDepsPage,
       setDepsGating,
       switchSubpageTab,
+      autoGrowTextarea,
       updateDepsBadge,
       updateYtdlpCard,
       updateFfmpegCard
@@ -5163,7 +5185,8 @@ var require_en = __commonJS({
         sankakuAuthClear: "Clear",
         sankakuAuthSaved: "Saved. Login-only posts will use this session.",
         sankakuAuthCleared: "Cleared.",
-        sankakuAuthInvalid: "No accessToken found in the pasted text."
+        sankakuAuthInvalid: "No accessToken found in the pasted text.",
+        tabAccount: "Accounts"
       }
     };
   }
@@ -5316,7 +5339,8 @@ var require_zh_CN = __commonJS({
         sankakuAuthClear: "\u6E05\u9664",
         sankakuAuthSaved: "\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u8F7D\u65F6\u4F1A\u4F7F\u7528\u8BE5\u767B\u5F55\u6001\u3002",
         sankakuAuthCleared: "\u5DF2\u6E05\u9664\u3002",
-        sankakuAuthInvalid: "\u672A\u8BC6\u522B\u5230 accessToken\uFF0C\u8BF7\u68C0\u67E5\u7C98\u8D34\u5185\u5BB9\u3002"
+        sankakuAuthInvalid: "\u672A\u8BC6\u522B\u5230 accessToken\uFF0C\u8BF7\u68C0\u67E5\u7C98\u8D34\u5185\u5BB9\u3002",
+        tabAccount: "\u8D26\u53F7"
       }
     };
   }
@@ -5444,7 +5468,7 @@ eagle.onThemeChanged(() => {
   ui.updateTheme();
 });
 function setupEventListeners() {
-  var _a, _b;
+  var _a, _b, _c;
   document.getElementById("closeButton").addEventListener("click", () => {
     saveWindowSize();
     window.close();
@@ -5457,6 +5481,9 @@ function setupEventListeners() {
   });
   (_b = document.getElementById("tabBtnDeps")) == null ? void 0 : _b.addEventListener("click", () => {
     ui.switchSubpageTab("dependencies");
+  });
+  (_c = document.getElementById("tabBtnAccount")) == null ? void 0 : _c.addEventListener("click", () => {
+    ui.switchSubpageTab("account");
   });
   const autoAddToggle = document.getElementById("autoAddSourceToggle");
   if (autoAddToggle) {
@@ -5495,6 +5522,7 @@ function setupEventListeners() {
         return;
       }
       sankakuAuth.setStoredAuth(authInput.value);
+      ui.autoGrowTextarea(authInput);
       if (authStatus)
         authStatus.textContent = i18next2.t("deps.sankakuAuthSaved");
     });

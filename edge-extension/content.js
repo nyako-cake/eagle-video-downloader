@@ -226,6 +226,106 @@
     return true;
   }
 
+  /* ------------------------------------------------------------ like / bookmark -> auto push */
+
+  const pushSettings = { like: true, bookmark: true };
+
+  function applyStoredSettings(values) {
+    if (!values) return;
+    if (typeof values.evdLikePush === "boolean") pushSettings.like = values.evdLikePush;
+    if (typeof values.evdBookmarkPush === "boolean") pushSettings.bookmark = values.evdBookmarkPush;
+  }
+
+  function loadPushSettings() {
+    try {
+      chrome.storage.local.get({ evdLikePush: true, evdBookmarkPush: true }, (values) => {
+        applyStoredSettings(values);
+      });
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        for (const key of Object.keys(changes)) {
+          const value = changes[key].newValue;
+          if (key === "evdLikePush") pushSettings.like = value !== false;
+          if (key === "evdBookmarkPush") pushSettings.bookmark = value !== false;
+        }
+      });
+    } catch (e) {
+      // storage unavailable: keep the defaults
+    }
+  }
+
+  const recentlyPushed = new Map();
+
+  function markPushed(url) {
+    const now = Date.now();
+    const last = recentlyPushed.get(url) || 0;
+    if (now - last < 8000) return false;
+    recentlyPushed.set(url, now);
+    // 控制 Map 体积
+    if (recentlyPushed.size > 200) {
+      for (const [key, ts] of recentlyPushed) {
+        if (now - ts > 60000) recentlyPushed.delete(key);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 点赞 / 收藏即推送：
+   * 只处理「未操作 -> 已操作」的按钮（like / bookmark），取消操作不触发。
+   */
+  async function handleActionClick(event) {
+    const target = event.target;
+    if (!target || !target.closest) return;
+
+    const likeBtn = target.closest('[data-testid="like"]');
+    const bookmarkBtn = likeBtn ? null : target.closest('[data-testid="bookmark"]');
+    const btn = likeBtn || bookmarkBtn;
+    if (!btn) return;
+    if (likeBtn && !pushSettings.like) return;
+    if (bookmarkBtn && !pushSettings.bookmark) return;
+
+    const article = btn.closest('article[data-testid="tweet"]');
+    if (!article) return;
+    const url = getTweetUrl(article);
+    if (!url) return;
+    if (!markPushed(url)) return;
+
+    await sendIngest(url, getMediaUrl(article));
+    showToast(likeBtn ? "已推送点赞帖子到 Eagle" : "已推送收藏帖子到 Eagle");
+  }
+
+  /* ------------------------------------------------------------ toast */
+
+  let toastHost = null;
+
+  function showToast(text) {
+    if (!toastHost || !toastHost.isConnected) {
+      toastHost = document.createElement("div");
+      toastHost.id = "evd-eagle-toast-host";
+      const shadow = toastHost.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent =
+        ".toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);" +
+        "background:rgba(0,0,0,.82);color:#fff;font-size:13px;padding:8px 14px;border-radius:999px;" +
+        "font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;" +
+        "z-index:2147483647;opacity:0;transition:opacity .18s ease;pointer-events:none;white-space:nowrap;}";
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      shadow.appendChild(style);
+      shadow.appendChild(toast);
+      document.body.appendChild(toastHost);
+      toastHost.__toast = toast;
+    }
+    const toast = toastHost.__toast;
+    toast.textContent = text;
+    toast.style.opacity = "1";
+    clearTimeout(toastHost.__timer);
+    toastHost.__timer = setTimeout(() => {
+      toast.style.opacity = "0";
+    }, 1800);
+  }
+
   /* ------------------------------------------------------------ sankaku floating button */
 
   let hostEl = null;
@@ -357,10 +457,20 @@
     }, 300);
   }
 
+  let started = false;
+
   function start() {
+    if (started) return;
+    started = true;
     if (typeof chrome === "undefined" || !chrome.runtime || !chrome.runtime.id) return;
     if (!SITE) return;
     scan();
+    if (SITE === "twitter") {
+      loadPushSettings();
+      document.addEventListener("click", (event) => {
+        handleActionClick(event).catch(() => {});
+      }, true);
+    }
     const observer = new MutationObserver(() => scheduleScan());
     observer.observe(document.body, { childList: true, subtree: true });
     setInterval(() => {
@@ -377,6 +487,10 @@
 
   window.__EVD_TEST__ = {
     scan,
+    start,
+    handleActionClick,
+    pushSettings,
+    applyStoredSettings,
     injectForTweet,
     createActionButton,
     getTweetUrl,

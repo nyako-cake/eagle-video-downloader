@@ -26,5 +26,29 @@ async function refresh() {
   text.textContent = "未连接";
 }
 
+/* 点赞 / 收藏推送开关 */
+const likePush = document.getElementById("likePush");
+const bookmarkPush = document.getElementById("bookmarkPush");
+
+function loadSwitches() {
+  try {
+    chrome.storage.local.get({ evdLikePush: true, evdBookmarkPush: true }, (values) => {
+      likePush.checked = values.evdLikePush !== false;
+      bookmarkPush.checked = values.evdBookmarkPush !== false;
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
+likePush.addEventListener("change", () => {
+  chrome.storage.local.set({ evdLikePush: likePush.checked });
+});
+
+bookmarkPush.addEventListener("change", () => {
+  chrome.storage.local.set({ evdBookmarkPush: bookmarkPush.checked });
+});
+
 document.getElementById("refresh").addEventListener("click", refresh);
+loadSwitches();
 refresh();

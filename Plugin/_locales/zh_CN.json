@@ -142,6 +142,7 @@
     "sankakuAuthClear": "清除",
     "sankakuAuthSaved": "已保存，下载时会使用该登录态。",
     "sankakuAuthCleared": "已清除。",
-    "sankakuAuthInvalid": "未识别到 accessToken，请检查粘贴内容。"
+    "sankakuAuthInvalid": "未识别到 accessToken，请检查粘贴内容。",
+    "tabAccount": "账号"
   }
 }

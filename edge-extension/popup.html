@@ -72,6 +72,52 @@
       line-height: 1.6;
     }
 
+    .switch-row {
+      justify-content: space-between;
+    }
+
+    .switch {
+      position: relative;
+      width: 34px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #555975;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.15s ease;
+    }
+
+    .switch input:checked + .slider {
+      background: #3197ff;
+    }
+
+    .switch input:checked + .slider::before {
+      transform: translateX(14px);
+    }
+
     button {
       width: 100%;
       margin-top: 10px;
@@ -92,12 +138,28 @@
 
 <body>
   <h1>Eagle 视频下载助手</h1>
-  <p class="sub">在 X（Twitter）的视频 / 动图下方点「保存到 Eagle」即可。</p>
+  <p class="sub">支持 X/Twitter 与 Sankaku：用页面按钮或工具栏图标推送链接，点赞、收藏也能自动推送。</p>
 
   <div class="row">
     <span id="pluginDot" class="dot"></span>
     <span class="name">Eagle 插件</span>
     <span id="pluginText">检测中…</span>
+  </div>
+
+  <div class="row switch-row">
+    <span class="name">点赞时推送链接</span>
+    <label class="switch">
+      <input type="checkbox" id="likePush" checked />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="row switch-row">
+    <span class="name">收藏时推送链接</span>
+    <label class="switch">
+      <input type="checkbox" id="bookmarkPush" checked />
+      <span class="slider"></span>
+    </label>
   </div>
 
   <p class="hint">插件没打开时，会退回到 Eagle 本地 API 直接收直链（仅限 mp4 直链，NSFW/需要登录的推文请打开插件）。</p>

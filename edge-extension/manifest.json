@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Eagle 视频下载助手（X / Twitter）",
+  "name": "Eagle 视频下载助手（X / Sankaku）",
   "version": "1.0.0",
-  "description": "在 X（Twitter）的视频与动图下方添加按钮，一键把链接推送到 Eagle 视频下载器自动下载。",
+  "description": "把 X/Twitter、Sankaku 的视频与图片推送到 Eagle：页面按钮、工具栏图标、点赞或收藏自动推送。",
   "minimum_chrome_version": "109",
   "permissions": ["storage"],
   "host_permissions": [

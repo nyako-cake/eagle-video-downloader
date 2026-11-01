@@ -294,22 +294,23 @@ function updateDepsBadge(hasNotice) {
  * @param {'settings' | 'dependencies'} tabName
  */
 function switchSubpageTab(tabName) {
-  const tabBtnSettings = document.getElementById("tabBtnSettings");
-  const tabBtnDeps = document.getElementById("tabBtnDeps");
-  const settingsPanel = document.getElementById("settingsPanel");
-  const depsPanel = document.getElementById("depsPanel");
+  const tabs = {
+    settings: { btn: document.getElementById("tabBtnSettings"), panel: document.getElementById("settingsPanel") },
+    dependencies: { btn: document.getElementById("tabBtnDeps"), panel: document.getElementById("depsPanel") },
+    account: { btn: document.getElementById("tabBtnAccount"), panel: document.getElementById("accountPanel") },
+  };
 
-  if (tabName === "settings") {
-    tabBtnSettings?.classList.add("active");
-    tabBtnDeps?.classList.remove("active");
-    settingsPanel?.classList.remove("hidden");
-    depsPanel?.classList.add("hidden");
-  } else {
-    tabBtnSettings?.classList.remove("active");
-    tabBtnDeps?.classList.add("active");
-    settingsPanel?.classList.add("hidden");
-    depsPanel?.classList.remove("hidden");
+  for (const [name, item] of Object.entries(tabs)) {
+    item.btn?.classList.toggle("active", name === tabName);
+    item.panel?.classList.toggle("hidden", name !== tabName);
   }
+}
+
+/** 让 textarea 跟随内容高度（不出现滚动条） */
+function autoGrowTextarea(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.max(38, el.scrollHeight) + "px";
 }
 
 /**
@@ -377,7 +378,13 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (authInput) {
     authInput.placeholder = i18next.t("deps.sankakuAuthPlaceholder");
     authInput.value = sankakuAuth.getStoredAuth();
+    autoGrowTextarea(authInput);
+    if (authInput.dataset.growBound !== "1") {
+      authInput.dataset.growBound = "1";
+      authInput.addEventListener("input", () => autoGrowTextarea(authInput));
+    }
   }
+  if (tabBtnAccount) tabBtnAccount.textContent = i18next.t("deps.tabAccount");
   if (authSave) authSave.textContent = i18next.t("deps.sankakuAuthSave");
   if (authClear) authClear.textContent = i18next.t("deps.sankakuAuthClear");
 
@@ -588,6 +595,7 @@ module.exports = {
   hideDepsPage,
   setDepsGating,
   switchSubpageTab,
+  autoGrowTextarea,
   updateDepsBadge,
   updateYtdlpCard,
   updateFfmpegCard,

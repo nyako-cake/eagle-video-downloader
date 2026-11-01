@@ -506,6 +506,18 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
 
   try {
     await execYtDlp(args, onProgress, handleOutput, { targetUrl });
+  } catch (error) {
+    const message = String((error && error.message) || "");
+    const recoverable = /Postprocessing|Invalid data found|Error opening input/i.test(message);
+    if (!recoverable) throw error;
+
+    // 合并/后处理失败时退回单一最佳格式重试一次（不再走 ffmpeg 合并）
+    const retryArgs = args.slice();
+    const mergeIndex = retryArgs.indexOf("--merge-output-format");
+    if (mergeIndex >= 0) retryArgs.splice(mergeIndex, 2);
+    const formatIndex = retryArgs.indexOf("-f");
+    if (formatIndex >= 0) retryArgs[formatIndex + 1] = "b/best";
+    await execYtDlp(retryArgs, onProgress, handleOutput, { targetUrl });
   } finally {
     if (processingWatcher) processingWatcher.stop();
   }

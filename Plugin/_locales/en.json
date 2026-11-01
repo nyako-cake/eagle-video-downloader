@@ -142,6 +142,7 @@
     "sankakuAuthClear": "Clear",
     "sankakuAuthSaved": "Saved. Login-only posts will use this session.",
     "sankakuAuthCleared": "Cleared.",
-    "sankakuAuthInvalid": "No accessToken found in the pasted text."
+    "sankakuAuthInvalid": "No accessToken found in the pasted text.",
+    "tabAccount": "Accounts"
   }
 }

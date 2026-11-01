@@ -10,7 +10,7 @@ const { validateUrl, assertHostAllowed, secureHttpsGet } = require("../net-guard
 
 const STATUS_ID_RE = /\/(?:status|statuses)\/(\d+)/;
 const ALLOWED_MEDIA_DOMAINS = ["video.twimg.com"];
-const RECOVERABLE_ERROR_RE = /No video formats found|No video could be found|TweetTombstone|NSFW|age.?restrict|not authorized|requires authentication/i;
+const RECOVERABLE_ERROR_RE = /No video formats found|No video could be found|TweetTombstone|NSFW|age.?restrict|not authorized|requires authentication|Postprocessing|Invalid data found|Error opening input/i;
 
 function match(url) {
   try {

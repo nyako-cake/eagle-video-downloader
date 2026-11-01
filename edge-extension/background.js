@@ -67,6 +67,57 @@ async function pushToEagleApi(mediaUrl, tweetUrl) {
   return { status: response.status, data };
 }
 
+const EAGLE_SCRIPT_API = "http://127.0.0.1:41595/api/script/inject";
+const PLUGIN_ID = "75328212-f4fd-4152-952d-26aa1bfcedf9";
+
+const WAKE_SCRIPT = [
+  "(function () {",
+  "  try {",
+  "    const path = require('path');",
+  "    const fs = require('fs');",
+  "    const dirs = [];",
+  "    if (process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'Eagle', 'Plugins', '" + PLUGIN_ID + "'));",
+  "    if (process.env.HOME) {",
+  "      dirs.push(path.join(process.env.HOME, 'Library', 'Application Support', 'Eagle', 'Plugins', '" + PLUGIN_ID + "'));",
+  "      dirs.push(path.join(process.env.HOME, '.config', 'Eagle', 'Plugins', '" + PLUGIN_ID + "'));",
+  "    }",
+  "    const base = dirs.find((p) => fs.existsSync(path.join(p, 'manifest.json')));",
+  "    if (!base) return;",
+  "    const manifest = JSON.parse(fs.readFileSync(path.join(base, 'manifest.json'), 'utf8'));",
+  "    const { ipcRenderer } = require('electron');",
+  "    ipcRenderer.invoke('create-plugin-window', { plugin: { manifest: manifest, path: base }, args: {} });",
+  "  } catch (e) {}",
+  "})();",
+].join("\n");
+
+/** 通过 Eagle 本地 API 打开插件窗口，并等待桥接端口就绪 */
+async function wakePlugin() {
+  try {
+    await fetchWithTimeout(
+      EAGLE_SCRIPT_API,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: WAKE_SCRIPT }),
+      },
+      5000
+    );
+  } catch (e) {
+    return false;
+  }
+
+  for (let i = 0; i < 12; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    try {
+      const response = await fetchWithTimeout(BRIDGE_PING, { method: "GET" }, 1500);
+      if (response.ok) return true;
+    } catch (e) {
+      // keep waiting
+    }
+  }
+  return false;
+}
+
 async function ingest(message) {
   const url = typeof message.url === "string" ? message.url.trim() : "";
   const mediaUrl = typeof message.mediaUrl === "string" ? message.mediaUrl.trim() : "";
@@ -77,6 +128,7 @@ async function ingest(message) {
   }
 
   let pluginStatus = 0;
+  let woke = false;
   try {
     const result = await pushToPlugin({ url, mediaUrl: mediaUrl || null });
     pluginStatus = result.status;
@@ -85,6 +137,22 @@ async function ingest(message) {
     }
   } catch (e) {
     pluginStatus = 0;
+  }
+
+  // 插件窗口没开：先尝试唤醒，再重试一次
+  if (pluginStatus === 0) {
+    woke = await wakePlugin();
+    if (woke) {
+      try {
+        const retry = await pushToPlugin({ url, mediaUrl: mediaUrl || null });
+        pluginStatus = retry.status;
+        if (retry.status === 200 && retry.data && retry.data.ok) {
+          return { ok: true, via: "plugin" };
+        }
+      } catch (e) {
+        pluginStatus = 0;
+      }
+    }
   }
 
   if (looksLikeDirectMedia(mediaUrl)) {
@@ -100,6 +168,9 @@ async function ingest(message) {
 
   if (pluginStatus === 503) {
     return { ok: false, error: "插件未就绪（依赖未安装）" };
+  }
+  if (woke) {
+    return { ok: false, error: "已尝试唤醒 Eagle 插件但失败，请手动打开" };
   }
   return { ok: false, error: "请先打开 Eagle 插件" };
 }

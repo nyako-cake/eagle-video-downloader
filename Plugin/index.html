@@ -669,8 +669,11 @@
 
     .setting-auth-input {
       width: 100%;
-      min-height: 44px;
-      resize: vertical;
+      min-height: 38px;
+      resize: none;
+      overflow-y: hidden;
+      white-space: pre-wrap;
+      word-break: break-all;
       background: var(--bg-panel);
       border: 1px solid var(--border-line);
       border-radius: 6px;
@@ -1023,6 +1026,7 @@
             <div class="subpage-tabs no-drag">
               <button id="tabBtnSettings" class="subpage-tab-btn active" data-tab="settings">Settings</button>
               <button id="tabBtnDeps" class="subpage-tab-btn" data-tab="dependencies">Dependencies</button>
+              <button id="tabBtnAccount" class="subpage-tab-btn" data-tab="account">Accounts</button>
             </div>
           </div>
 
@@ -1094,6 +1098,10 @@
                 </div>
               </div>
 
+            </div>
+
+            <!-- Accounts Panel -->
+            <div id="accountPanel" class="hidden">
               <div class="settings-card">
                 <div class="setting-row setting-row-column">
                   <div class="setting-info">
