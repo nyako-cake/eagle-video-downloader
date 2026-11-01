@@ -66,6 +66,12 @@
     "dribbbleProtected": "Dribbble pages are bot-protected. Please right-click the video in your browser, copy the direct video URL (.mp4), and paste it here",
     "dribbbleExtractFailed": "Failed to extract Dribbble shot content, please check your network or copy the direct video URL from browser",
     "dribbbleNoMedia": "No downloadable video or image found in this Dribbble shot",
+    "sankakuExtractFailed": "Failed to read Sankaku post data, please check your network and try again",
+    "sankakuRateLimited": "Sankaku API rate limit reached, please wait a minute and retry",
+    "sankakuNotFound": "Sankaku post not found - the link may be wrong or the post was deleted",
+    "sankakuUnavailable": "This Sankaku post is unavailable (deleted or restricted)",
+    "sankakuLoginRequired": "This Sankaku post requires a signed-in account to download",
+    "sankakuNoMedia": "No downloadable video or image found in this Sankaku post",
     "videoUnavailable": "Video is unavailable or has been removed",
     "privateVideo": "This video is private or requires sign-in",
     "unknown": "Unknown"

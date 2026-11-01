@@ -8,6 +8,7 @@ const vimeo = require('./vimeo');
 const instagram = require('./instagram');
 const pinterest = require('./pinterest');
 const dribbble = require('./dribbble');
+const sankaku = require('./sankaku');
 
 const adapters = [
   bilibili,
@@ -16,6 +17,7 @@ const adapters = [
   instagram,
   pinterest,
   dribbble,
+  sankaku,
 ];
 
 function findAdapter(url) {

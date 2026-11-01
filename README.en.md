@@ -8,7 +8,7 @@ Download videos directly to Eagle from sites supported by yt-dlp. Built on [yt-d
 
 ## Supported Platforms
 
-YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, and [many more](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, Sankaku, and [many more](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ## Features
 

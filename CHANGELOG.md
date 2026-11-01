@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.2.0
+
+新增 Sankaku（sankaku.app）支持：
+
+- 支持 sankaku.app / sankakucomplex.com 投稿页的视频与图片下载
+- 通过站点公开 API 按投稿 ID 解析，自动把带签名的 CDN 直链与 Referer 交给 yt-dlp
+- 需要登录或受限的投稿会给出明确提示，不会卡在解析阶段
+
+
 ## 3.1.0
 
 界面与交互：

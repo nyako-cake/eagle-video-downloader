@@ -66,6 +66,12 @@
     "dribbbleProtected": "Dribbble 页面受防爬保护无法直接解析，请在浏览器中右键视频复制「视频地址」(.mp4) 后下载",
     "dribbbleExtractFailed": "Dribbble 内容解析失败，请检查网络或在浏览器中复制视频直链",
     "dribbbleNoMedia": "未在该 Dribbble 页面中找到可下载的视频或图片",
+    "sankakuExtractFailed": "Sankaku 投稿解析失败，请检查网络后重试",
+    "sankakuRateLimited": "Sankaku API 请求过于频繁，请稍等一分钟再试",
+    "sankakuNotFound": "未找到该 Sankaku 投稿，链接可能有误或投稿已删除",
+    "sankakuUnavailable": "该 Sankaku 投稿不可用（已删除或受限）",
+    "sankakuLoginRequired": "该 Sankaku 投稿需要登录账号才能下载",
+    "sankakuNoMedia": "未在该 Sankaku 投稿中找到可下载的视频或图片",
     "videoUnavailable": "视频不可用或已被删除",
     "privateVideo": "私密视频或需要登录访问",
     "unknown": "未知"
