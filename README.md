@@ -54,9 +54,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 
 ## 安装方式
 
-通过 [Eagle 社区](https://community-cn.eagle.cool/plugins) 安装，或在 Eagle 应用的插件中心搜索安装。
-
-手动安装：下载[最新版本](https://github.com/fansanqiu/eagle-video-downloader/releases)，在 Eagle 中选择 插件 → 开发者选项 → 导入本地项目。
+手动安装：下载[最新版本](https://github.com/nyako-cake/eagle-video-downloader/releases)，在 Eagle 中选择 插件 → 开发者选项 → 导入本地项目。
 
 ## 首次运行
 

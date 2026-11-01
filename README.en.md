@@ -54,9 +54,7 @@ Note: the bridge path requires the plugin window to be open; with the window clo
 
 ## Installation
 
-Install via [Eagle Community](https://community-cn.eagle.cool/plugins) or search for it in Eagle's plugin center.
-
-Manual install: download the [latest release](https://github.com/fansanqiu/eagle-video-downloader/releases), then in Eagle go to Plugins → Developer Options → Import Local Project.
+Manual install: download the [latest release](https://github.com/nyako-cake/eagle-video-downloader/releases), then in Eagle go to Plugins → Developer Options → Import Local Project.
 
 ## First Run
 
