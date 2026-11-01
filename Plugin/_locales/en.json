@@ -74,7 +74,9 @@
     "sankakuNoMedia": "No downloadable video or image found in this Sankaku post",
     "videoUnavailable": "Video is unavailable or has been removed",
     "privateVideo": "This video is private or requires sign-in",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "sankakuLoginOrDeleted": "Sankaku post not found for anonymous requests; it may require login or be deleted. Add your account cookie in Settings -> Sankaku Account.",
+    "sankakuAuthExpired": "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account."
   },
   "progress": {
     "remaining": "Remaining"
@@ -132,6 +134,14 @@
     "progressText": "Downloading... {{percent}}%",
     "threadCountLabel": "Download Threads",
     "threadCountHint": "Concurrent fragments for HLS/DASH. Not always faster; direct MP4 stays single-connection.",
-    "threadAuto": "Auto (Default)"
+    "threadAuto": "Auto (Default)",
+    "sankakuAuthLabel": "Sankaku Account",
+    "sankakuAuthHint": "Paste the accessToken cookie from a logged-in sankaku.app session to download login-only posts.",
+    "sankakuAuthPlaceholder": "accessToken=...",
+    "sankakuAuthSave": "Save",
+    "sankakuAuthClear": "Clear",
+    "sankakuAuthSaved": "Saved. Login-only posts will use this session.",
+    "sankakuAuthCleared": "Cleared.",
+    "sankakuAuthInvalid": "No accessToken found in the pasted text."
   }
 }

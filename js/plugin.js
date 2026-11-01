@@ -15,6 +15,7 @@ const {
 } = require("./binary");
 const { isNetworkError } = require("./net-guard");
 const downloader = require("./downloader");
+const sankakuAuth = require("./sankaku-auth");
 const ui = require("./ui");
 
 // 状态管理
@@ -231,6 +232,32 @@ function setupEventListeners() {
   if (threadSelect) {
     threadSelect.addEventListener("change", (e) => {
       setThreadCountPref(e.target.value);
+    });
+  }
+
+  // Sankaku 账号凭证：保存 / 清除
+  const authInput = document.getElementById("sankakuAuthInput");
+  const authStatus = document.getElementById("sankakuAuthStatus");
+  const authSave = document.getElementById("sankakuAuthSave");
+  const authClear = document.getElementById("sankakuAuthClear");
+
+  if (authSave && authInput) {
+    authSave.addEventListener("click", () => {
+      const token = sankakuAuth.parseAccessToken(authInput.value);
+      if (!token) {
+        if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthInvalid");
+        return;
+      }
+      sankakuAuth.setStoredAuth(authInput.value);
+      if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthSaved");
+    });
+  }
+
+  if (authClear && authInput) {
+    authClear.addEventListener("click", () => {
+      sankakuAuth.setStoredAuth("");
+      authInput.value = "";
+      if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthCleared");
     });
   }
 
@@ -718,7 +745,7 @@ function setupWindowState() {
 // 本机桥接：接收浏览器扩展推送的链接（仅监听 127.0.0.1）
 // ---------------------------------------------------------------------------
 const INGEST_PORT = 43110;
-const INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com"];
+const INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com"];
 
 function isIngestUrlAllowed(value) {
   try {

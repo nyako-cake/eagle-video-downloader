@@ -3112,6 +3112,63 @@ var require_twitter = __commonJS({
         setTimeout(() => finish(null), 2e4);
       });
     }
+    function pickPhotoUrls(tweet) {
+      const photos = tweet && tweet.media && Array.isArray(tweet.media.photos) ? tweet.media.photos : [];
+      const urls = [];
+      for (const photo of photos) {
+        const raw = typeof photo === "string" ? photo : photo && (photo.url || photo.media_url_https);
+        if (typeof raw !== "string" || !/^https:\/\/pbs\.twimg\.com\//i.test(raw))
+          continue;
+        const base = raw.replace(/[?&]name=[^&]+/i, "");
+        urls.push(base + (base.includes("?") ? "&" : "?") + "name=orig");
+      }
+      return urls;
+    }
+    function buildTitle(tweet, text, statusId) {
+      const cleaned = String(text || "").replace(/https:\/\/t\.co\/\S+/gi, "").replace(/\s+/g, " ").trim();
+      const author = tweet && tweet.author ? tweet.author.screen_name || tweet.author.name : "";
+      const head = cleaned || "Twitter " + statusId;
+      const suffix = author ? " - @" + author : "";
+      return (head + suffix).slice(0, 180);
+    }
+    async function customGetInfo(url) {
+      const statusId = getStatusId(url);
+      if (!statusId)
+        return null;
+      let data = null;
+      try {
+        data = await fetchTweetJson(statusId);
+      } catch (e) {
+        return null;
+      }
+      const tweet = data && data.tweet;
+      if (!tweet)
+        return null;
+      const text = typeof tweet.text === "string" ? tweet.text : "";
+      const base = {
+        title: buildTitle(tweet, text, statusId),
+        description: text,
+        uploader: tweet.author ? tweet.author.name || tweet.author.screen_name || "Twitter" : "Twitter",
+        extractor: "twitter",
+        webpage_url: url,
+        id: statusId,
+        thumbnail: tweet.media && tweet.media.videos && tweet.media.videos[0] ? tweet.media.videos[0].thumbnail_url || null : null
+      };
+      const videos = tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
+      if (videos.length) {
+        return Object.assign({}, base, { duration: Number(videos[0].duration) || 0 });
+      }
+      const photos = pickPhotoUrls(tweet);
+      if (photos.length) {
+        return Object.assign({}, base, {
+          type: "image",
+          imageUrl: photos[0],
+          images: photos,
+          webpage_url: url
+        });
+      }
+      return null;
+    }
     async function handleExecFailure({ stderr, args, onProgress, onOutput, execYtDlp, url }) {
       try {
         if (!match(url) || !Array.isArray(args) || args.includes("--dump-json"))
@@ -3141,7 +3198,9 @@ var require_twitter = __commonJS({
     module2.exports = {
       match,
       getSiteArgs,
-      handleExecFailure
+      customGetInfo,
+      handleExecFailure,
+      pickPhotoUrls
     };
   }
 });
@@ -3636,15 +3695,89 @@ var require_dribbble = __commonJS({
   }
 });
 
+// js/sankaku-auth.js
+var require_sankaku_auth = __commonJS({
+  "js/sankaku-auth.js"(exports2, module2) {
+    var STORAGE_KEY = "eagle-video-downloader.sankakuAuth";
+    function getStoredAuth() {
+      try {
+        if (typeof localStorage === "undefined")
+          return "";
+        return localStorage.getItem(STORAGE_KEY) || "";
+      } catch (e) {
+        return "";
+      }
+    }
+    function setStoredAuth(value) {
+      try {
+        if (typeof localStorage === "undefined")
+          return;
+        const text = String(value || "").trim();
+        if (!text) {
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        localStorage.setItem(STORAGE_KEY, text);
+      } catch (e) {
+      }
+    }
+    function parseAccessToken(raw) {
+      const text = String(raw === void 0 || raw === null ? "" : raw).trim();
+      if (!text)
+        return "";
+      if (!text.includes("="))
+        return text;
+      for (const part of text.split(";")) {
+        const index = part.indexOf("=");
+        if (index < 0)
+          continue;
+        const name = part.slice(0, index).trim();
+        const value = part.slice(index + 1).trim();
+        if (name === "accessToken" && value)
+          return value;
+      }
+      return "";
+    }
+    function getAccessToken() {
+      return parseAccessToken(getStoredAuth());
+    }
+    function buildAuthHeaders(baseHeaders) {
+      const headers = { ...baseHeaders || {} };
+      const token = getAccessToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+    module2.exports = {
+      STORAGE_KEY,
+      getStoredAuth,
+      setStoredAuth,
+      parseAccessToken,
+      getAccessToken,
+      buildAuthHeaders
+    };
+  }
+});
+
 // js/sites/sankaku.js
 var require_sankaku = __commonJS({
   "js/sites/sankaku.js"(exports2, module2) {
     var { validateUrl, assertHostAllowed, secureHttpsGet } = require_net_guard();
+    var { buildAuthHeaders, getAccessToken } = require_sankaku_auth();
     var i18next3 = require_i18next();
+    function tr(key, fallback) {
+      try {
+        const value = i18next3.t(key);
+        return value && value !== key ? value : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
     var API_BASE = "https://sankakuapi.com";
     var API_ACCEPT = "application/vnd.sankaku.api+json;v=2";
     var ALLOWED_MEDIA_DOMAINS = ["sankakucomplex.com", "sankaku.app"];
-    var POST_PATH_RE = /^(?:\/[a-z]{2})?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/i;
+    var POST_PATH_RE = /^(?:\/[a-z]{2}(?:-[a-zA-Z]{2,4})?)?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/;
     var VIDEO_EXT_RE = /^(mp4|webm|mov|m4v|mkv)$/i;
     var IMAGE_EXT_RE = /^(jpg|jpeg|png|gif|webp|avif)$/i;
     function match(url) {
@@ -3682,7 +3815,7 @@ var require_sankaku = __commonJS({
         return null;
       }
     }
-    function fetchPost(postId) {
+    function fetchPost(postId, anonymous = false) {
       return new Promise(async (resolve, reject) => {
         let settled = false;
         const finish = (fn, value) => {
@@ -3695,7 +3828,7 @@ var require_sankaku = __commonJS({
           lang: "en",
           page: "1",
           limit: "1",
-          tags: `id:${postId}`
+          tags: `id_range:${postId}`
         });
         const apiUrl = `${API_BASE}/v2/posts?${params.toString()}`;
         try {
@@ -3703,12 +3836,17 @@ var require_sankaku = __commonJS({
           const req = await secureHttpsGet(
             apiUrl,
             {
-              headers: {
+              headers: anonymous ? {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 "Accept": API_ACCEPT,
                 "Origin": "https://sankaku.app",
                 "Referer": "https://sankaku.app/"
-              }
+              } : buildAuthHeaders({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": API_ACCEPT,
+                "Origin": "https://sankaku.app",
+                "Referer": "https://sankaku.app/"
+              })
             },
             (res) => {
               let body = "";
@@ -3717,36 +3855,63 @@ var require_sankaku = __commonJS({
                 body += chunk;
                 if (body.length > 2e6) {
                   res.destroy();
-                  finish(reject, new Error(i18next3.t("error.sankakuExtractFailed")));
+                  finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
                 }
               });
               res.on("end", () => {
                 if (res.statusCode === 429) {
-                  finish(reject, new Error(i18next3.t("error.sankakuRateLimited")));
+                  finish(reject, new Error(tr("error.sankakuRateLimited", "Sankaku API rate limited, please retry later")));
+                  return;
+                }
+                if (res.statusCode === 401 && !anonymous && getAccessToken()) {
+                  fetchPost(postId, true).then((post) => finish(resolve, post), (err) => finish(reject, err));
+                  return;
+                }
+                if (res.statusCode === 401) {
+                  finish(reject, new Error(tr("error.sankakuAuthExpired", "Sankaku login expired, please update the account cookie in Settings")));
+                  return;
+                }
+                if (res.statusCode === 404) {
+                  if (getAccessToken() && !anonymous) {
+                    finish(reject, new Error(tr("error.sankakuNotFound", "Sankaku post not found (bad link or deleted)")));
+                  } else {
+                    finish(reject, new Error(tr(
+                      "error.sankakuLoginOrDeleted",
+                      "Sankaku post not found for anonymous users; it may require login or be deleted. Add your account cookie in Settings -> Account."
+                    )));
+                  }
+                  return;
+                }
+                if (res.statusCode === 403) {
+                  if (getAccessToken() && !anonymous) {
+                    fetchPost(postId, true).then((post) => finish(resolve, post), (err) => finish(reject, err));
+                  } else {
+                    finish(reject, new Error(tr("error.sankakuUnavailable", "Sankaku post unavailable (deleted or restricted)")));
+                  }
                   return;
                 }
                 if (res.statusCode !== 200) {
-                  finish(reject, new Error(i18next3.t("error.sankakuExtractFailed")));
+                  finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
                   return;
                 }
                 try {
                   finish(resolve, pickPost(JSON.parse(body), postId));
                 } catch (e) {
-                  finish(reject, new Error(i18next3.t("error.sankakuExtractFailed")));
+                  finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
                 }
               });
-              res.on("error", () => finish(reject, new Error(i18next3.t("error.sankakuExtractFailed"))));
+              res.on("error", () => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))));
             }
           );
-          req.on("error", () => finish(reject, new Error(i18next3.t("error.sankakuExtractFailed"))));
+          req.on("error", () => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))));
           req.setTimeout(15e3, () => {
             req.destroy();
-            finish(reject, new Error(i18next3.t("error.sankakuExtractFailed")));
+            finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
           });
         } catch (e) {
           finish(reject, e);
         }
-        setTimeout(() => finish(reject, new Error(i18next3.t("error.sankakuExtractFailed"))), 2e4);
+        setTimeout(() => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))), 2e4);
       });
     }
     function pickPost(payload, postId) {
@@ -3769,14 +3934,14 @@ var require_sankaku = __commonJS({
         return null;
       const post = await fetchPost(postId);
       if (!post) {
-        throw new Error(i18next3.t("error.sankakuNotFound"));
+        throw new Error(tr("error.sankakuNotFound", "Sankaku post not found (bad link or deleted)"));
       }
       if (post.status && post.status !== "active") {
-        throw new Error(i18next3.t("error.sankakuUnavailable"));
+        throw new Error(tr("error.sankakuUnavailable", "Sankaku post unavailable (deleted or restricted)"));
       }
       let fileUrl = typeof post.file_url === "string" ? post.file_url.trim() : "";
       if (!fileUrl) {
-        throw new Error(i18next3.t("error.sankakuLoginRequired"));
+        throw new Error(tr("error.sankakuLoginRequired", "This Sankaku post requires a logged-in account"));
       }
       if (fileUrl.startsWith("http://")) {
         fileUrl = `https://${fileUrl.slice("http://".length)}`;
@@ -3807,7 +3972,7 @@ var require_sankaku = __commonJS({
           webpage_url: url
         };
       }
-      throw new Error(i18next3.t("error.sankakuNoMedia"));
+      throw new Error(tr("error.sankakuNoMedia", "No downloadable video or image in this Sankaku post"));
     }
     module2.exports = {
       match,
@@ -4229,22 +4394,32 @@ var require_downloader = __commonJS({
           };
         }
       }
-      if (videoInfo && videoInfo.type === "image" && videoInfo.imageUrl) {
-        await validateUrl(videoInfo.imageUrl);
+      const images = videoInfo ? Array.isArray(videoInfo.images) && videoInfo.images.length ? videoInfo.images : videoInfo.type === "image" && videoInfo.imageUrl ? [videoInfo.imageUrl] : [] : [];
+      if (images.length) {
         const outputDir2 = getTempDir();
         const sanitizedTitle2 = sanitizeFilename(videoInfo.title);
-        const urlPath = new URL(videoInfo.imageUrl).pathname;
-        const ext = path.extname(urlPath) || ".jpg";
-        const filename = `${sanitizedTitle2}${ext}`;
-        const outputPath = path.join(outputDir2, filename);
         if (onStatus)
           onStatus(i18next3.t("ui.downloading"));
-        await downloadFile(videoInfo.imageUrl, outputPath, onProgress);
-        return [{
-          path: outputPath,
-          metadata: videoInfo,
-          filename
-        }];
+        const results = [];
+        for (let index = 0; index < images.length; index++) {
+          const imageUrl = images[index];
+          await validateUrl(imageUrl);
+          const urlPath = new URL(imageUrl).pathname;
+          const ext = path.extname(urlPath) || ".jpg";
+          const suffix = images.length > 1 ? "_" + (index + 1) : "";
+          const filename = sanitizedTitle2 + suffix + ext;
+          const outputPath = path.join(outputDir2, filename);
+          const imageProgress = images.length > 1 ? void 0 : onProgress;
+          try {
+            await execYtDlp([imageUrl, "-o", outputPath, "--no-warnings"], imageProgress, null, false);
+            if (!fs.existsSync(outputPath))
+              throw new Error("image not written");
+          } catch (e) {
+            await downloadFile(imageUrl, outputPath, imageProgress);
+          }
+          results.push({ path: outputPath, metadata: videoInfo, filename });
+        }
+        return results;
       }
       const outputDir = getTempDir();
       const sanitizedTitle = sanitizeFilename(videoInfo.title);
@@ -4337,6 +4512,7 @@ var require_downloader = __commonJS({
 // js/ui.js
 var require_ui = __commonJS({
   "js/ui.js"(exports2, module2) {
+    var sankakuAuth2 = require_sankaku_auth();
     function updateTheme() {
       const THEME_SUPPORT = {
         AUTO: eagle.app.isDarkColors() ? "gray" : "light",
@@ -4411,11 +4587,7 @@ var require_ui = __commonJS({
             return;
           urlInput.value = value;
           urlInput.dispatchEvent(new Event("input", { bubbles: true }));
-          urlInput.focus();
-          try {
-            urlInput.setSelectionRange(value.length, value.length);
-          } catch (e) {
-          }
+          handleSubmit();
         });
       }
     }
@@ -4637,6 +4809,23 @@ var require_ui = __commonJS({
           threadSelect.options[0].textContent = i18next.t("deps.threadAuto");
         threadSelect.value = String(threadCountPref || "auto");
       }
+      const authLabel = document.getElementById("sankakuAuthLabel");
+      const authHint = document.getElementById("sankakuAuthHint");
+      const authInput = document.getElementById("sankakuAuthInput");
+      const authSave = document.getElementById("sankakuAuthSave");
+      const authClear = document.getElementById("sankakuAuthClear");
+      if (authLabel)
+        authLabel.textContent = i18next.t("deps.sankakuAuthLabel");
+      if (authHint)
+        authHint.textContent = i18next.t("deps.sankakuAuthHint");
+      if (authInput) {
+        authInput.placeholder = i18next.t("deps.sankakuAuthPlaceholder");
+        authInput.value = sankakuAuth2.getStoredAuth();
+      }
+      if (authSave)
+        authSave.textContent = i18next.t("deps.sankakuAuthSave");
+      if (authClear)
+        authClear.textContent = i18next.t("deps.sankakuAuthClear");
       if (notice)
         notice.textContent = i18next.t("deps.setupRequired");
       if (ytdlpDesc)
@@ -4906,7 +5095,9 @@ var require_en = __commonJS({
         sankakuNoMedia: "No downloadable video or image found in this Sankaku post",
         videoUnavailable: "Video is unavailable or has been removed",
         privateVideo: "This video is private or requires sign-in",
-        unknown: "Unknown"
+        unknown: "Unknown",
+        sankakuLoginOrDeleted: "Sankaku post not found for anonymous requests; it may require login or be deleted. Add your account cookie in Settings -> Sankaku Account.",
+        sankakuAuthExpired: "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account."
       },
       progress: {
         remaining: "Remaining"
@@ -4964,7 +5155,15 @@ var require_en = __commonJS({
         progressText: "Downloading... {{percent}}%",
         threadCountLabel: "Download Threads",
         threadCountHint: "Concurrent fragments for HLS/DASH. Not always faster; direct MP4 stays single-connection.",
-        threadAuto: "Auto (Default)"
+        threadAuto: "Auto (Default)",
+        sankakuAuthLabel: "Sankaku Account",
+        sankakuAuthHint: "Paste the accessToken cookie from a logged-in sankaku.app session to download login-only posts.",
+        sankakuAuthPlaceholder: "accessToken=...",
+        sankakuAuthSave: "Save",
+        sankakuAuthClear: "Clear",
+        sankakuAuthSaved: "Saved. Login-only posts will use this session.",
+        sankakuAuthCleared: "Cleared.",
+        sankakuAuthInvalid: "No accessToken found in the pasted text."
       }
     };
   }
@@ -5049,7 +5248,9 @@ var require_zh_CN = __commonJS({
         sankakuNoMedia: "\u672A\u5728\u8BE5 Sankaku \u6295\u7A3F\u4E2D\u627E\u5230\u53EF\u4E0B\u8F7D\u7684\u89C6\u9891\u6216\u56FE\u7247",
         videoUnavailable: "\u89C6\u9891\u4E0D\u53EF\u7528\u6216\u5DF2\u88AB\u5220\u9664",
         privateVideo: "\u79C1\u5BC6\u89C6\u9891\u6216\u9700\u8981\u767B\u5F55\u8BBF\u95EE",
-        unknown: "\u672A\u77E5"
+        unknown: "\u672A\u77E5",
+        sankakuLoginOrDeleted: "\u672A\u627E\u5230\u8BE5\u6295\u7A3F\uFF0C\u53EF\u80FD\u9700\u8981\u767B\u5F55\u540E\u624D\u80FD\u67E5\u770B\uFF0C\u6216\u6295\u7A3F\u5DF2\u5220\u9664\u3002\u53EF\u5728\u300C\u8BBE\u7F6E \u2192 Sankaku \u8D26\u53F7\u300D\u4E2D\u586B\u5199 Cookie \u540E\u91CD\u8BD5\u3002",
+        sankakuAuthExpired: "Sankaku \u767B\u5F55\u5DF2\u5931\u6548\uFF0C\u8BF7\u5728\u300C\u8BBE\u7F6E \u2192 Sankaku \u8D26\u53F7\u300D\u4E2D\u66F4\u65B0 Cookie\u3002"
       },
       progress: {
         remaining: "\u5269\u4F59"
@@ -5107,7 +5308,15 @@ var require_zh_CN = __commonJS({
         progressText: "\u6B63\u5728\u4E0B\u8F7D... {{percent}}%",
         threadCountLabel: "\u4E0B\u8F7D\u7EBF\u7A0B\u6570",
         threadCountHint: "\u5206\u7247\u89C6\u9891\uFF08HLS/DASH\uFF09\u7684\u5E76\u53D1\u7EBF\u7A0B\u6570\u3002\u4E0D\u4E00\u5B9A\u8D8A\u5FEB\uFF1B\u76F4\u94FE MP4 \u5355\u8FDE\u63A5\u3002",
-        threadAuto: "\u81EA\u52A8\uFF08\u9ED8\u8BA4\uFF09"
+        threadAuto: "\u81EA\u52A8\uFF08\u9ED8\u8BA4\uFF09",
+        sankakuAuthLabel: "Sankaku \u8D26\u53F7",
+        sankakuAuthHint: "\u767B\u5F55 sankaku.app \u540E\uFF0C\u4ECE\u6D4F\u89C8\u5668 Cookie \u91CC\u590D\u5236 accessToken \u7C98\u8D34\u5230\u8FD9\u91CC\uFF0C\u7528\u4E8E\u4E0B\u8F7D\u4EC5\u767B\u5F55\u53EF\u89C1\u7684\u6295\u7A3F\u3002",
+        sankakuAuthPlaceholder: "accessToken=...",
+        sankakuAuthSave: "\u4FDD\u5B58",
+        sankakuAuthClear: "\u6E05\u9664",
+        sankakuAuthSaved: "\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u8F7D\u65F6\u4F1A\u4F7F\u7528\u8BE5\u767B\u5F55\u6001\u3002",
+        sankakuAuthCleared: "\u5DF2\u6E05\u9664\u3002",
+        sankakuAuthInvalid: "\u672A\u8BC6\u522B\u5230 accessToken\uFF0C\u8BF7\u68C0\u67E5\u7C98\u8D34\u5185\u5BB9\u3002"
       }
     };
   }
@@ -5126,6 +5335,7 @@ var {
 } = require_binary();
 var { isNetworkError } = require_net_guard();
 var downloader = require_downloader();
+var sankakuAuth = require_sankaku_auth();
 var ui = require_ui();
 var isInitialized = false;
 async function importToEagle(videoPath, metadata, sourceUrl) {
@@ -5270,6 +5480,31 @@ function setupEventListeners() {
   if (threadSelect) {
     threadSelect.addEventListener("change", (e) => {
       setThreadCountPref(e.target.value);
+    });
+  }
+  const authInput = document.getElementById("sankakuAuthInput");
+  const authStatus = document.getElementById("sankakuAuthStatus");
+  const authSave = document.getElementById("sankakuAuthSave");
+  const authClear = document.getElementById("sankakuAuthClear");
+  if (authSave && authInput) {
+    authSave.addEventListener("click", () => {
+      const token = sankakuAuth.parseAccessToken(authInput.value);
+      if (!token) {
+        if (authStatus)
+          authStatus.textContent = i18next2.t("deps.sankakuAuthInvalid");
+        return;
+      }
+      sankakuAuth.setStoredAuth(authInput.value);
+      if (authStatus)
+        authStatus.textContent = i18next2.t("deps.sankakuAuthSaved");
+    });
+  }
+  if (authClear && authInput) {
+    authClear.addEventListener("click", () => {
+      sankakuAuth.setStoredAuth("");
+      authInput.value = "";
+      if (authStatus)
+        authStatus.textContent = i18next2.t("deps.sankakuAuthCleared");
     });
   }
   document.getElementById("ytdlpActions").addEventListener("click", (e) => {
@@ -5662,7 +5897,7 @@ function setupWindowState() {
   window.addEventListener("beforeunload", saveWindowSize);
 }
 var INGEST_PORT = 43110;
-var INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com"];
+var INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com"];
 function isIngestUrlAllowed(value) {
   try {
     const parsed = new URL(String(value || ""));

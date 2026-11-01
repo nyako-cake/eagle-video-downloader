@@ -407,24 +407,38 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
     }
   }
 
-  if (videoInfo && videoInfo.type === 'image' && videoInfo.imageUrl) {
-    await validateUrl(videoInfo.imageUrl);
+  // 图片投稿：支持一条推文里的多张图片
+  const images = videoInfo
+    ? (Array.isArray(videoInfo.images) && videoInfo.images.length
+      ? videoInfo.images
+      : (videoInfo.type === 'image' && videoInfo.imageUrl ? [videoInfo.imageUrl] : []))
+    : [];
+
+  if (images.length) {
     const outputDir = getTempDir();
     const sanitizedTitle = sanitizeFilename(videoInfo.title);
-    const urlPath = new URL(videoInfo.imageUrl).pathname;
-    const ext = path.extname(urlPath) || '.jpg';
-    const filename = `${sanitizedTitle}${ext}`;
-    const outputPath = path.join(outputDir, filename);
-
     if (onStatus) onStatus(i18next.t("ui.downloading"));
 
-    await downloadFile(videoInfo.imageUrl, outputPath, onProgress);
-
-    return [{
-      path: outputPath,
-      metadata: videoInfo,
-      filename: filename,
-    }];
+    const results = [];
+    for (let index = 0; index < images.length; index++) {
+      const imageUrl = images[index];
+      await validateUrl(imageUrl);
+      const urlPath = new URL(imageUrl).pathname;
+      const ext = path.extname(urlPath) || '.jpg';
+      const suffix = images.length > 1 ? '_' + (index + 1) : '';
+      const filename = sanitizedTitle + suffix + ext;
+      const outputPath = path.join(outputDir, filename);
+      const imageProgress = images.length > 1 ? undefined : onProgress;
+      try {
+        // 走 yt-dlp：它继承系统代理，Twitter/Sankaku 的图片 CDN 在部分网络下直连不可达
+        await execYtDlp([imageUrl, '-o', outputPath, '--no-warnings'], imageProgress, null, false);
+        if (!fs.existsSync(outputPath)) throw new Error('image not written');
+      } catch (e) {
+        await downloadFile(imageUrl, outputPath, imageProgress);
+      }
+      results.push({ path: outputPath, metadata: videoInfo, filename: filename });
+    }
+    return results;
   }
 
   const outputDir = getTempDir();

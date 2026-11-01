@@ -7,6 +7,54 @@
   pointer-events: auto;
 }
 
+/* Sankaku 投稿页：悬浮在视频右上角，层级置顶 */
+.evd-eagle-wrap.evd-eagle-video-btn {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 2147483000;
+  pointer-events: auto;
+}
+
+.evd-eagle-wrap.evd-eagle-video-btn .evd-eagle-btn {
+  height: 28px;
+  padding: 0 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* Sankaku 投稿页：没有视频时注入左侧操作栏（MUI Drawer） */
+.evd-eagle-wrap.evd-eagle-drawer {
+  margin: 6px 8px 10px;
+  padding: 0;
+  justify-content: stretch;
+}
+
+.evd-eagle-wrap.evd-eagle-drawer .evd-eagle-btn {
+  width: 100%;
+  height: 30px;
+  justify-content: center;
+}
+
+/* Sankaku 投稿页：没有左侧栏时固定在视口右下角 */
+.evd-eagle-wrap.evd-eagle-floating {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  margin: 0;
+  z-index: 2147483000;
+}
+
+/* Sankaku 图库：浮在视频右下角，避免破坏播放器布局 */
+.evd-eagle-wrap.evd-eagle-overlay {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
+  z-index: 5;
+}
+
 .evd-eagle-btn {
   display: inline-flex;
   align-items: center;
@@ -59,4 +107,37 @@ html[data-evd-color-scheme="light"] .evd-eagle-btn {
   background: rgba(255, 255, 255, 0.75);
   color: #0f1419;
   border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* 找不到媒体容器时的兜底位置：贴在推文末尾 */
+.evd-eagle-wrap.evd-eagle-inline {
+  margin: 8px 0 4px;
+  padding: 0;
+  justify-content: flex-start;
+}
+/* 通用悬浮按钮：以媒体元素右上角为锚点 */
+.evd-eagle-wrap.evd-eagle-float {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 2147483000;
+  pointer-events: auto;
+}
+
+.evd-eagle-wrap.evd-eagle-float .evd-eagle-btn {
+  height: 28px;
+  padding: 0 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+/* 注入到页面媒体容器（css-g5y9jx）内部时：绝对定位到右上角 */
+.evd-eagle-wrap.evd-eagle-inside {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  margin: 0;
+  padding: 0;
+  z-index: 20;
+  pointer-events: auto;
 }

@@ -74,7 +74,9 @@
     "sankakuNoMedia": "未在该 Sankaku 投稿中找到可下载的视频或图片",
     "videoUnavailable": "视频不可用或已被删除",
     "privateVideo": "私密视频或需要登录访问",
-    "unknown": "未知"
+    "unknown": "未知",
+    "sankakuLoginOrDeleted": "未找到该投稿，可能需要登录后才能查看，或投稿已删除。可在「设置 → Sankaku 账号」中填写 Cookie 后重试。",
+    "sankakuAuthExpired": "Sankaku 登录已失效，请在「设置 → Sankaku 账号」中更新 Cookie。"
   },
   "progress": {
     "remaining": "剩余"
@@ -132,6 +134,14 @@
     "progressText": "正在下载... {{percent}}%",
     "threadCountLabel": "下载线程数",
     "threadCountHint": "分片视频（HLS/DASH）的并发线程数。不一定越快；直链 MP4 单连接。",
-    "threadAuto": "自动（默认）"
+    "threadAuto": "自动（默认）",
+    "sankakuAuthLabel": "Sankaku 账号",
+    "sankakuAuthHint": "登录 sankaku.app 后，从浏览器 Cookie 里复制 accessToken 粘贴到这里，用于下载仅登录可见的投稿。",
+    "sankakuAuthPlaceholder": "accessToken=...",
+    "sankakuAuthSave": "保存",
+    "sankakuAuthClear": "清除",
+    "sankakuAuthSaved": "已保存，下载时会使用该登录态。",
+    "sankakuAuthCleared": "已清除。",
+    "sankakuAuthInvalid": "未识别到 accessToken，请检查粘贴内容。"
   }
 }

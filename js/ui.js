@@ -3,6 +3,8 @@
  * 处理用户界面交互
  */
 
+const sankakuAuth = require("./sankaku-auth");
+
 /**
  * 更新 UI 主题
  */
@@ -100,10 +102,8 @@ function setupInputBar() {
       if (!value) return;
       urlInput.value = value;
       urlInput.dispatchEvent(new Event("input", { bubbles: true }));
-      urlInput.focus();
-      try {
-        urlInput.setSelectionRange(value.length, value.length);
-      } catch (e) {}
+      // 粘贴后直接开始下载
+      handleSubmit();
     });
   }
 }
@@ -365,6 +365,21 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     if (threadSelect.options[0]) threadSelect.options[0].textContent = i18next.t("deps.threadAuto");
     threadSelect.value = String(threadCountPref || "auto");
   }
+
+  const authLabel = document.getElementById("sankakuAuthLabel");
+  const authHint = document.getElementById("sankakuAuthHint");
+  const authInput = document.getElementById("sankakuAuthInput");
+  const authSave = document.getElementById("sankakuAuthSave");
+  const authClear = document.getElementById("sankakuAuthClear");
+
+  if (authLabel) authLabel.textContent = i18next.t("deps.sankakuAuthLabel");
+  if (authHint) authHint.textContent = i18next.t("deps.sankakuAuthHint");
+  if (authInput) {
+    authInput.placeholder = i18next.t("deps.sankakuAuthPlaceholder");
+    authInput.value = sankakuAuth.getStoredAuth();
+  }
+  if (authSave) authSave.textContent = i18next.t("deps.sankakuAuthSave");
+  if (authClear) authClear.textContent = i18next.t("deps.sankakuAuthClear");
 
   if (notice) notice.textContent = i18next.t("deps.setupRequired");
   if (ytdlpDesc) ytdlpDesc.textContent = i18next.t("deps.ytdlpDesc");

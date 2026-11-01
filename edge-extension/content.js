@@ -1,19 +1,40 @@
-/* Eagle 视频下载助手 — X / Twitter 内容脚本
- * 在每条含视频/动图的推文媒体下方插入一个「保存到 Eagle」按钮，
- * 点击后把推文链接（以及可选的直链）推送给本机 Eagle 插件。
+/* Eagle 视频下载助手 — 内容脚本
+ * X / Twitter：把下载按钮插到推文操作栏「分享」按钮旁边（图片、视频推文都适用）
+ * Sankaku（sankaku.app）：右下角固定浮动按钮
+ * 点击后把页面链接（以及可选的直链）推送给本机 Eagle 插件。
  */
 (function () {
   "use strict";
 
-  const WRAP_CLASS = "evd-eagle-wrap";
-  const BTN_CLASS = "evd-eagle-btn";
-  const INJECTED_FLAG = "evdInjected";
+  const HOST_ID = "evd-eagle-media-download-host";
+  const BTN_ID = "evd-eagle-media-download";
+  const ACTION_CLASS = "evd-eagle-action";
+  const SANKAKU_POST_RE = /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/i;
 
-  function textOf(el) {
-    return (el && el.textContent ? el.textContent : "").trim();
+  const SITE = (function () {
+    const host = (location.hostname || "").toLowerCase();
+    if (host === "x.com" || host === "twitter.com" || host.endsWith(".twitter.com") || host.endsWith(".x.com")) {
+      return "twitter";
+    }
+    if (host === "sankaku.app" || host.endsWith(".sankaku.app") || host.endsWith(".sankakucomplex.com")) {
+      return "sankaku";
+    }
+    return null;
+  })();
+
+  /* ------------------------------------------------------------ url helpers */
+
+  function isVisible(el) {
+    if (!el || !el.isConnected) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== "none" && style.visibility !== "hidden";
   }
 
-  /** 从推文 article 里找出这条推文的永久链接 */
+  function areaOf(el) {
+    const rect = el.getBoundingClientRect();
+    return rect.width * rect.height;
+  }
+
   function getTweetUrl(article) {
     if (!article) return null;
     const timeLink = article.querySelector('a[href*="/status/"] time');
@@ -29,126 +50,323 @@
     }
   }
 
-  /** 视频/动图的直链（拿不到就返回 null，插件仍可按推文链接下载） */
-  function getMediaUrl(article) {
-    const video = article && article.querySelector("video");
-    if (!video) return null;
-    const src = video.currentSrc || video.src || "";
-    if (/^https:\/\/video\.twimg\.com\//i.test(src)) return src;
-    const source = video.querySelector("source[src]");
-    const sourceSrc = source ? source.getAttribute("src") || "" : "";
-    return /^https:\/\/video\.twimg\.com\//i.test(sourceSrc) ? sourceSrc : null;
+  function getMediaUrlFrom(media) {
+    if (!media) return null;
+    if (media.tagName === "VIDEO") {
+      const src = media.currentSrc || media.src || "";
+      if (/^https:\/\/video\.twimg\.com\//i.test(src)) return src;
+      const source = media.querySelector("source[src]");
+      const sourceSrc = source ? source.getAttribute("src") || "" : "";
+      if (/^https:\/\/video\.twimg\.com\//i.test(sourceSrc)) return sourceSrc;
+      return null;
+    }
+    const img = media.tagName === "IMG" ? media : (media.querySelector && media.querySelector("img"));
+    const src = img ? img.currentSrc || img.src || "" : "";
+    if (/^https:\/\/pbs\.twimg\.com\//i.test(src)) return src.split("?")[0] + "?name=orig";
+    return null;
   }
 
-  function findMediaContainer(article) {
+  function getMediaUrl(article) {
+    if (!article) return null;
     const video = article.querySelector("video");
-    if (!video) return null;
+    if (video) {
+      const url = getMediaUrlFrom(video);
+      if (url) return url;
+    }
+    const photo = article.querySelector('[data-testid="tweetPhoto"]');
+    if (photo) {
+      const url = getMediaUrlFrom(photo);
+      if (url) return url;
+    }
+    return null;
+  }
+
+  function tweetUrlForMedia(media) {
+    const article = media.closest ? media.closest('article[data-testid="tweet"]') : null;
+    if (article) {
+      const url = getTweetUrl(article);
+      if (url) return url;
+    }
+    const link = media.closest ? media.closest('a[href*="/status/"]') : null;
+    if (link && link.href) {
+      const matched = link.href.match(/\/status\/(\d+)/);
+      if (matched) return `https://x.com/i/status/${matched[1]}`;
+    }
+    const pathMatch = (location.pathname || "").match(/\/status\/(\d+)/);
+    return pathMatch ? `https://x.com/i/status/${pathMatch[1]}` : null;
+  }
+
+  function getSankakuPostUrl() {
+    const matched = (location.pathname || "").match(SANKAKU_POST_RE);
+    if (!matched) return null;
+    return `${location.protocol}//${location.host}${location.pathname.replace(/\/+$/, "")}`;
+  }
+
+  function getSankakuPostUrlFor(node) {
+    const direct = getSankakuPostUrl();
+    if (direct) return direct;
+    let el = node;
+    while (el && el !== document.body) {
+      if (el.tagName === "A" && el.href) {
+        try {
+          const url = new URL(el.href);
+          if (SANKAKU_POST_RE.test(url.pathname)) return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, "")}`;
+        } catch (e) {
+          // ignore malformed href
+        }
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function getSankakuMediaUrl(video) {
+    const src = (video && (video.currentSrc || video.src)) || "";
+    if (/^https:\/\/[^/]*sankakucomplex\.com\//i.test(src)) return src;
+    return null;
+  }
+
+  function findSankakuSidebar() {
     return (
-      video.closest('[data-testid="videoPlayer"]') ||
-      video.closest('[data-testid="tweetPhoto"]') ||
-      video.closest('[data-testid="tweetVideo"]') ||
-      video
+      document.querySelector(".MuiDrawer-paper.MuiDrawer-paperAnchorLeft") ||
+      document.querySelector('[class*="MuiDrawer-paperAnchorLeft"]') ||
+      null
     );
   }
 
-  /** 把按钮插到媒体块下方（跳过外层的 <a>，避免点击触发跳转） */
-  function insertAfterMedia(article, wrap) {
-    const container = findMediaContainer(article);
-    if (!container) return false;
-    let anchor = container;
-    while (anchor.parentElement && anchor.parentElement.tagName === "A") {
-      anchor = anchor.parentElement;
+  /* ------------------------------------------------------------ send helper */
+
+  async function sendIngest(url, mediaUrl) {
+    try {
+      return await chrome.runtime.sendMessage({ type: "ingest", url: url, mediaUrl: mediaUrl || null });
+    } catch (e) {
+      return { ok: false, error: "扩展后台不可用" };
     }
-    const parent = anchor.parentElement;
-    if (!parent) return false;
-    parent.insertBefore(wrap, anchor.nextSibling);
-    return true;
   }
 
-  function createButton(tweetUrl, mediaUrl) {
+  /* ------------------------------------------------------------ twitter action bar */
+
+  const ACTION_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1Z"/>' +
+    "</svg>";
+
+  function createActionButton(url, mediaUrl) {
     const wrap = document.createElement("div");
-    wrap.className = WRAP_CLASS;
+    wrap.className = ACTION_CLASS;
+    wrap.style.cssText = "display:flex;align-items:center;justify-content:center;";
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = BTN_CLASS;
-    btn.innerHTML = '<span class="evd-eagle-icon" aria-hidden="true">&#8681;</span><span class="evd-eagle-label">保存到 Eagle</span>';
-    btn.title = "把这条推文推送到 Eagle 视频下载器";
-    btn.dataset.state = "idle";
+    btn.className = "evd-eagle-action-btn";
+    btn.setAttribute("aria-label", "保存到 Eagle");
+    btn.title = "保存到 Eagle（图片 / 视频）";
+    btn.innerHTML = ACTION_ICON_SVG;
+    btn.style.cssText = [
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "width:34.75px",
+      "height:34.75px",
+      "padding:0",
+      "border:none",
+      "border-radius:9999px",
+      "background:transparent",
+      "color:rgb(113,118,123)",
+      "cursor:pointer",
+      "transition:background 0.15s ease,color 0.15s ease",
+    ].join(";");
+
+    btn.addEventListener("mouseenter", () => {
+      btn.style.background = "rgba(29,155,240,0.1)";
+      btn.style.color = "rgb(29,155,240)";
+    });
+    btn.addEventListener("mouseleave", () => {
+      btn.style.background = "transparent";
+      btn.style.color = "rgb(113,118,123)";
+    });
 
     btn.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (btn.dataset.state === "sending") return;
-      const label = btn.querySelector(".evd-eagle-label");
-
       btn.dataset.state = "sending";
-      if (label) label.textContent = "推送中…";
-      let response = null;
-      try {
-        response = await chrome.runtime.sendMessage({ type: "ingest", url: tweetUrl, mediaUrl: mediaUrl || null });
-      } catch (e) {
-        response = { ok: false, error: "扩展后台不可用" };
-      }
-
+      btn.style.opacity = "0.6";
+      const response = await sendIngest(url, mediaUrl);
+      btn.style.opacity = "1";
       if (response && response.ok) {
-        btn.dataset.state = "ok";
-        if (label) label.textContent = response.via === "eagle-api" ? "已交给 Eagle" : "已推送";
-        btn.classList.add("is-ok");
+        btn.style.color = "rgb(0,186,124)";
       } else {
-        btn.dataset.state = "error";
-        if (label) label.textContent = (response && response.error) || "推送失败";
-        btn.classList.add("is-error");
+        btn.style.color = "rgb(244,33,46)";
+        btn.title = (response && response.error) || "推送失败";
       }
       setTimeout(() => {
         btn.dataset.state = "idle";
-        btn.classList.remove("is-ok", "is-error");
-        if (label) label.textContent = "保存到 Eagle";
-      }, 2600);
+        btn.style.color = "rgb(113,118,123)";
+        btn.title = "保存到 Eagle（图片 / 视频）";
+      }, 2400);
     });
 
     wrap.appendChild(btn);
     return wrap;
   }
 
-  function injectForArticle(article) {
-    if (!article || article.dataset[INJECTED_FLAG] === "1") return false;
-    if (article.querySelector("." + BTN_CLASS)) {
-      article.dataset[INJECTED_FLAG] = "1";
-      return false;
-    }
-    const tweetUrl = getTweetUrl(article);
-    if (!tweetUrl) return false;
-    const wrap = createButton(tweetUrl, getMediaUrl(article));
-    if (!insertAfterMedia(article, wrap)) return false;
-    article.dataset[INJECTED_FLAG] = "1";
+  /** 每条推文都加一个按钮，直接把推文链接推给下载器（不判断内容类型） */
+  function injectForTweet(article) {
+    if (!article) return false;
+    const group = article.querySelector('[role="group"]');
+    if (!group) return false;
+    if (group.querySelector("." + ACTION_CLASS)) return false;
+
+    const url = getTweetUrl(article);
+    if (!url) return false;
+
+    const wrap = createActionButton(url, getMediaUrl(article));
+    group.appendChild(wrap);
     return true;
   }
 
-  function scan(root) {
-    const scope = root || document;
-    const articles = scope.querySelectorAll('article[data-testid="tweet"]');
-    let count = 0;
-    for (const article of articles) {
-      if (injectForArticle(article)) count++;
-    }
-    return count;
+  /* ------------------------------------------------------------ sankaku floating button */
+
+  let hostEl = null;
+
+  const FAB_STYLE = `
+    .wrap { position: fixed; right: 24px; bottom: 24px; z-index: 2147483647;
+      font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px;
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; background: rgba(0,0,0,0.72);
+      color: #fff; font-size: 13px; line-height: 1; cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+      transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease; }
+    button:hover { background: rgba(49,151,255,0.9); }
+    button:active { transform: scale(0.97); }
+    button[data-state="sending"] { opacity: 0.75; cursor: default; }
+    button.is-ok { background: rgba(75,217,82,0.9); }
+    button.is-error { background: rgba(245,108,108,0.9); }
+  `;
+
+  function ensureHost() {
+    if (hostEl && hostEl.isConnected) return hostEl;
+    hostEl = document.createElement("div");
+    hostEl.id = HOST_ID;
+    hostEl.style.all = "initial";
+    const shadow = hostEl.attachShadow({ mode: "open" });
+
+    const style = document.createElement("style");
+    style.textContent = FAB_STYLE;
+
+    const wrap = document.createElement("div");
+    wrap.className = "wrap";
+
+    const btn = document.createElement("button");
+    btn.id = BTN_ID;
+    btn.type = "button";
+    btn.dataset.state = "idle";
+    btn.innerHTML = '<span aria-hidden="true">&#8681;</span><span class="label">保存到 Eagle</span>';
+    btn.title = "把当前页面 / 媒体推送到 Eagle 视频下载器";
+
+    btn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (btn.dataset.state === "sending") return;
+      const label = btn.querySelector(".label");
+      const target = resolveSankakuTarget();
+      if (!target) {
+        btn.dataset.state = "error";
+        if (label) label.textContent = "未找到可下载的媒体";
+        return;
+      }
+      btn.dataset.state = "sending";
+      if (label) label.textContent = "推送中…";
+      const response = await sendIngest(target.url, target.mediaUrl);
+      if (response && response.ok) {
+        btn.dataset.state = "ok";
+        btn.classList.add("is-ok");
+        if (label) label.textContent = response.via === "eagle-api" ? "已交给 Eagle" : "已推送";
+      } else {
+        btn.dataset.state = "error";
+        btn.classList.add("is-error");
+        if (label) label.textContent = (response && response.error) || "推送失败";
+      }
+      setTimeout(() => {
+        btn.dataset.state = "idle";
+        btn.classList.remove("is-ok", "is-error");
+        if (label) label.textContent = "保存到 Eagle";
+        refreshSankakuButton();
+      }, 2400);
+    });
+
+    wrap.appendChild(btn);
+    shadow.appendChild(style);
+    shadow.appendChild(wrap);
+    document.body.appendChild(hostEl);
+    return hostEl;
   }
 
-  let scanTimer = null;
+  function pickSankakuMedia() {
+    const candidates = [];
+    for (const video of document.querySelectorAll("video")) {
+      if (isVisible(video)) candidates.push(video);
+    }
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => areaOf(b) - areaOf(a));
+    return candidates[0];
+  }
+
+  function resolveSankakuTarget() {
+    const url = getSankakuPostUrl();
+    if (!url) return null;
+    const media = pickSankakuMedia();
+    return { url, mediaUrl: media ? getSankakuMediaUrl(media) : null };
+  }
+
+  function refreshSankakuButton() {
+    const target = resolveSankakuTarget();
+    if (!target) {
+      if (hostEl && hostEl.isConnected) hostEl.remove();
+      return false;
+    }
+    ensureHost();
+    return true;
+  }
+
+  /* ------------------------------------------------------------ scan */
+
+  function scan(root) {
+    const scope = root || document;
+    if (SITE === "twitter") {
+      const articles = scope.querySelectorAll('article[data-testid="tweet"]');
+      let count = 0;
+      for (const article of articles) {
+        if (injectForTweet(article)) count++;
+      }
+      return count;
+    }
+    if (SITE === "sankaku") {
+      return refreshSankakuButton() ? 1 : 0;
+    }
+    return 0;
+  }
+
+  let timer = null;
   function scheduleScan() {
-    if (scanTimer) return;
-    scanTimer = setTimeout(() => {
-      scanTimer = null;
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
       scan();
     }, 300);
   }
 
   function start() {
     if (typeof chrome === "undefined" || !chrome.runtime || !chrome.runtime.id) return;
+    if (!SITE) return;
     scan();
     const observer = new MutationObserver(() => scheduleScan());
     observer.observe(document.body, { childList: true, subtree: true });
+    setInterval(() => {
+      if (SITE === "sankaku") refreshSankakuButton();
+    }, 1200);
+    window.addEventListener("popstate", () => scheduleScan());
   }
 
   if (document.readyState === "loading") {
@@ -157,6 +375,21 @@
     start();
   }
 
-  // 便于自动化测试；正常使用时只是挂在 window 上的几个纯函数
-  window.__EVD_TEST__ = { scan, injectForArticle, getTweetUrl, getMediaUrl, createButton };
+  window.__EVD_TEST__ = {
+    scan,
+    injectForTweet,
+    createActionButton,
+    getTweetUrl,
+    getMediaUrl,
+    getMediaUrlFrom,
+    tweetUrlForMedia,
+    getSankakuPostUrl,
+    getSankakuPostUrlFor,
+    getSankakuMediaUrl,
+    refreshSankakuButton,
+    findSankakuSidebar,
+    hostId: HOST_ID,
+    buttonId: BTN_ID,
+    site: SITE,
+  };
 })();

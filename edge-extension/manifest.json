@@ -14,7 +14,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://x.com/*", "https://twitter.com/*", "https://mobile.twitter.com/*"],
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://mobile.twitter.com/*",
+        "https://sankaku.app/*",
+        "https://*.sankaku.app/*",
+        "https://*.sankakucomplex.com/*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"

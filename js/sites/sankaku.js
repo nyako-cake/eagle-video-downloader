@@ -8,12 +8,23 @@
  */
 
 const { validateUrl, assertHostAllowed, secureHttpsGet } = require("../net-guard");
+const { buildAuthHeaders, getAccessToken } = require("../sankaku-auth");
 const i18next = require("i18next");
+
+/** i18n lookup with an English fallback so errors are never empty. */
+function tr(key, fallback) {
+  try {
+    const value = i18next.t(key);
+    return value && value !== key ? value : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
 
 const API_BASE = "https://sankakuapi.com";
 const API_ACCEPT = "application/vnd.sankaku.api+json;v=2";
 const ALLOWED_MEDIA_DOMAINS = ["sankakucomplex.com", "sankaku.app"];
-const POST_PATH_RE = /^(?:\/[a-z]{2})?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/i;
+const POST_PATH_RE = /^(?:\/[a-z]{2}(?:-[a-zA-Z]{2,4})?)?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/;
 const VIDEO_EXT_RE = /^(mp4|webm|mov|m4v|mkv)$/i;
 const IMAGE_EXT_RE = /^(jpg|jpeg|png|gif|webp|avif)$/i;
 
@@ -69,7 +80,7 @@ function getPostId(url) {
  * 调用官方 API 查询单个投稿。
  * @returns {Promise<object|null>} 投稿对象；查询无结果时返回 null
  */
-function fetchPost(postId) {
+function fetchPost(postId, anonymous = false) {
   return new Promise(async (resolve, reject) => {
     let settled = false;
     const finish = (fn, value) => {
@@ -82,7 +93,7 @@ function fetchPost(postId) {
       lang: "en",
       page: "1",
       limit: "1",
-      tags: `id:${postId}`,
+      tags: `id_range:${postId}`,
     });
     const apiUrl = `${API_BASE}/v2/posts?${params.toString()}`;
 
@@ -91,12 +102,19 @@ function fetchPost(postId) {
       const req = await secureHttpsGet(
         apiUrl,
         {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "Accept": API_ACCEPT,
-            "Origin": "https://sankaku.app",
-            "Referer": "https://sankaku.app/",
-          },
+          headers: anonymous
+            ? {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+              "Accept": API_ACCEPT,
+              "Origin": "https://sankaku.app",
+              "Referer": "https://sankaku.app/",
+            }
+            : buildAuthHeaders({
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+              "Accept": API_ACCEPT,
+              "Origin": "https://sankaku.app",
+              "Referer": "https://sankaku.app/",
+            }),
         },
         (res) => {
           let body = "";
@@ -105,36 +123,64 @@ function fetchPost(postId) {
             body += chunk;
             if (body.length > 2e6) {
               res.destroy();
-              finish(reject, new Error(i18next.t("error.sankakuExtractFailed")));
+              finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
             }
           });
           res.on("end", () => {
             if (res.statusCode === 429) {
-              finish(reject, new Error(i18next.t("error.sankakuRateLimited")));
+              finish(reject, new Error(tr("error.sankakuRateLimited", "Sankaku API rate limited, please retry later")));
+              return;
+            }
+            if (res.statusCode === 401 && !anonymous && getAccessToken()) {
+              // 凭证失效时退回匿名请求，避免一条过期 Cookie 影响公开投稿
+              fetchPost(postId, true).then((post) => finish(resolve, post), (err) => finish(reject, err));
+              return;
+            }
+            if (res.statusCode === 401) {
+              finish(reject, new Error(tr("error.sankakuAuthExpired", "Sankaku login expired, please update the account cookie in Settings")));
+              return;
+            }
+            if (res.statusCode === 404) {
+              if (getAccessToken() && !anonymous) {
+                finish(reject, new Error(tr("error.sankakuNotFound", "Sankaku post not found (bad link or deleted)")));
+              } else {
+                finish(reject, new Error(tr(
+                  "error.sankakuLoginOrDeleted",
+                  "Sankaku post not found for anonymous users; it may require login or be deleted. Add your account cookie in Settings -> Account."
+                )));
+              }
+              return;
+            }
+            if (res.statusCode === 403) {
+              if (getAccessToken() && !anonymous) {
+                fetchPost(postId, true).then((post) => finish(resolve, post), (err) => finish(reject, err));
+              } else {
+                finish(reject, new Error(tr("error.sankakuUnavailable", "Sankaku post unavailable (deleted or restricted)")));
+              }
               return;
             }
             if (res.statusCode !== 200) {
-              finish(reject, new Error(i18next.t("error.sankakuExtractFailed")));
+              finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
               return;
             }
             try {
               finish(resolve, pickPost(JSON.parse(body), postId));
             } catch (e) {
-              finish(reject, new Error(i18next.t("error.sankakuExtractFailed")));
+              finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
             }
           });
-          res.on("error", () => finish(reject, new Error(i18next.t("error.sankakuExtractFailed"))));
+          res.on("error", () => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))));
         }
       );
-      req.on("error", () => finish(reject, new Error(i18next.t("error.sankakuExtractFailed"))));
+      req.on("error", () => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))));
       req.setTimeout(15000, () => {
         req.destroy();
-        finish(reject, new Error(i18next.t("error.sankakuExtractFailed")));
+        finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post")));
       });
     } catch (e) {
       finish(reject, e);
     }
-    setTimeout(() => finish(reject, new Error(i18next.t("error.sankakuExtractFailed"))), 20000);
+    setTimeout(() => finish(reject, new Error(tr("error.sankakuExtractFailed", "Failed to read this Sankaku post"))), 20000);
   });
 }
 
@@ -169,15 +215,15 @@ async function customGetInfo(url) {
 
   const post = await fetchPost(postId);
   if (!post) {
-    throw new Error(i18next.t("error.sankakuNotFound"));
+    throw new Error(tr("error.sankakuNotFound", "Sankaku post not found (bad link or deleted)"));
   }
   if (post.status && post.status !== "active") {
-    throw new Error(i18next.t("error.sankakuUnavailable"));
+    throw new Error(tr("error.sankakuUnavailable", "Sankaku post unavailable (deleted or restricted)"));
   }
 
   let fileUrl = typeof post.file_url === "string" ? post.file_url.trim() : "";
   if (!fileUrl) {
-    throw new Error(i18next.t("error.sankakuLoginRequired"));
+    throw new Error(tr("error.sankakuLoginRequired", "This Sankaku post requires a logged-in account"));
   }
   if (fileUrl.startsWith("http://")) {
     fileUrl = `https://${fileUrl.slice("http://".length)}`;
@@ -214,7 +260,7 @@ async function customGetInfo(url) {
     };
   }
 
-  throw new Error(i18next.t("error.sankakuNoMedia"));
+  throw new Error(tr("error.sankakuNoMedia", "No downloadable video or image in this Sankaku post"));
 }
 
 module.exports = {

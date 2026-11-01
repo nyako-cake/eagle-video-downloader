@@ -19,7 +19,9 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 
 function looksLikeDirectMedia(url) {
   if (typeof url !== "string") return false;
-  return /^https:\/\/video\.twimg\.com\/.+/i.test(url);
+  if (/^https:\/\/video\.twimg\.com\/.+/i.test(url)) return true;
+  if (/^https:\/\/pbs\.twimg\.com\/.+/i.test(url)) return true;
+  return /^https:\/\/(?:[a-z0-9-]+\.)*sankakucomplex\.com\/.+/i.test(url);
 }
 
 async function pushToPlugin(payload) {
@@ -68,8 +70,10 @@ async function pushToEagleApi(mediaUrl, tweetUrl) {
 async function ingest(message) {
   const url = typeof message.url === "string" ? message.url.trim() : "";
   const mediaUrl = typeof message.mediaUrl === "string" ? message.mediaUrl.trim() : "";
-  if (!/^https:\/\/(x|twitter|mobile\.twitter)\.com\//i.test(url)) {
-    return { ok: false, error: "不是有效的推文链接" };
+  const isTweetUrl = /^https:\/\/(x|twitter|mobile\.twitter)\.com\//i.test(url);
+  const isSankakuUrl = /^https:\/\/(?:[a-z0-9-]+\.)*sankaku(?:complex)?\.(?:app|com)\//i.test(url);
+  if (!isTweetUrl && !isSankakuUrl) {
+    return { ok: false, error: "不支持的页面链接" };
   }
 
   let pluginStatus = 0;

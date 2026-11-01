@@ -116,6 +116,75 @@ function fetchTweetJson(statusId) {
   });
 }
 
+/**
+ * 推文里的图片地址（统一换成原图）
+ */
+function pickPhotoUrls(tweet) {
+  const photos = tweet && tweet.media && Array.isArray(tweet.media.photos) ? tweet.media.photos : [];
+  const urls = [];
+  for (const photo of photos) {
+    const raw = typeof photo === "string" ? photo : photo && (photo.url || photo.media_url_https);
+    if (typeof raw !== "string" || !/^https:\/\/pbs\.twimg\.com\//i.test(raw)) continue;
+    const base = raw.replace(/[?&]name=[^&]+/i, "");
+    urls.push(base + (base.includes("?") ? "&" : "?") + "name=orig");
+  }
+  return urls;
+}
+
+function buildTitle(tweet, text, statusId) {
+  const cleaned = String(text || "").replace(/https:\/\/t\.co\/\S+/gi, "").replace(/\s+/g, " ").trim();
+  const author = tweet && tweet.author ? tweet.author.screen_name || tweet.author.name : "";
+  const head = cleaned || "Twitter " + statusId;
+  const suffix = author ? " - @" + author : "";
+  return (head + suffix).slice(0, 180);
+}
+
+/**
+ * 推文元信息：有视频交给 yt-dlp 下载，只有图片时走插件的图片下载通道。
+ * 推文正文写入 description，导入 Eagle 时会成为注释。
+ */
+async function customGetInfo(url) {
+  const statusId = getStatusId(url);
+  if (!statusId) return null;
+
+  let data = null;
+  try {
+    data = await fetchTweetJson(statusId);
+  } catch (e) {
+    return null;
+  }
+  const tweet = data && data.tweet;
+  if (!tweet) return null;
+
+  const text = typeof tweet.text === "string" ? tweet.text : "";
+  const base = {
+    title: buildTitle(tweet, text, statusId),
+    description: text,
+    uploader: tweet.author ? tweet.author.name || tweet.author.screen_name || "Twitter" : "Twitter",
+    extractor: "twitter",
+    webpage_url: url,
+    id: statusId,
+    thumbnail: tweet.media && tweet.media.videos && tweet.media.videos[0] ? tweet.media.videos[0].thumbnail_url || null : null,
+  };
+
+  const videos = tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
+  if (videos.length) {
+    return Object.assign({}, base, { duration: Number(videos[0].duration) || 0 });
+  }
+
+  const photos = pickPhotoUrls(tweet);
+  if (photos.length) {
+    return Object.assign({}, base, {
+      type: "image",
+      imageUrl: photos[0],
+      images: photos,
+      webpage_url: url,
+    });
+  }
+
+  return null;
+}
+
 async function handleExecFailure({ stderr, args, onProgress, onOutput, execYtDlp, url }) {
   try {
     if (!match(url) || !Array.isArray(args) || args.includes("--dump-json")) return null;
@@ -146,5 +215,7 @@ async function handleExecFailure({ stderr, args, onProgress, onOutput, execYtDlp
 module.exports = {
   match,
   getSiteArgs,
+  customGetInfo,
   handleExecFailure,
+  pickPhotoUrls,
 };

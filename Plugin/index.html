@@ -655,6 +655,48 @@
       border-top: 1px solid var(--border-line);
     }
 
+    .setting-row-column {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .setting-auth-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-auth-input {
+      width: 100%;
+      min-height: 44px;
+      resize: vertical;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-line);
+      border-radius: 6px;
+      color: var(--fg1);
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 6px 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      outline: none;
+    }
+
+    .setting-auth-input:focus {
+      border-color: var(--brand);
+    }
+
+    .setting-auth-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-auth-status {
+      font-size: 10px;
+      color: var(--fg2);
+    }
+
     .setting-info {
       display: flex;
       flex-direction: column;
@@ -1048,6 +1090,23 @@
                       <option value="64">64</option>
                       <option value="128">128</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="setting-row setting-row-column">
+                  <div class="setting-info">
+                    <span id="sankakuAuthLabel" class="setting-title">Sankaku Account</span>
+                    <span id="sankakuAuthHint" class="setting-desc">Paste the accessToken cookie from a logged-in sankaku.app session to download login-only posts.</span>
+                  </div>
+                  <div class="setting-auth-wrap no-drag">
+                    <textarea id="sankakuAuthInput" class="setting-auth-input no-drag" rows="2" spellcheck="false" placeholder="accessToken=..."></textarea>
+                    <div class="setting-auth-actions">
+                      <button id="sankakuAuthSave" class="dep-btn" type="button">Save</button>
+                      <button id="sankakuAuthClear" class="dep-btn danger" type="button">Clear</button>
+                      <span id="sankakuAuthStatus" class="setting-auth-status"></span>
+                    </div>
                   </div>
                 </div>
               </div>
