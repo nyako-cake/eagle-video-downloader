@@ -3057,6 +3057,28 @@ var require_twitter = __commonJS({
       }
       return null;
     }
+    function pickVideoUrls(tweet) {
+      const videos = tweet && tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
+      const urls = [];
+      for (const video of videos) {
+        if (!video)
+          continue;
+        const variants = Array.isArray(video.variants) ? video.variants.filter((variant) => {
+          if (!variant || typeof variant.url !== "string")
+            return false;
+          if (!/^https:\/\/video\.twimg\.com\//i.test(variant.url))
+            return false;
+          const kind = `${variant.content_type || ""} ${variant.container || ""}`.toLowerCase();
+          return kind.includes("mp4") || /\.mp4(\?|$)/i.test(variant.url);
+        }) : [];
+        variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        const candidate = variants.length > 0 ? variants[0].url : video.url;
+        if (typeof candidate === "string" && candidate.startsWith("https://") && !urls.includes(candidate)) {
+          urls.push(candidate);
+        }
+      }
+      return urls;
+    }
     function fetchTweetJson(statusId) {
       return new Promise(async (resolve) => {
         let settled = false;
@@ -3156,7 +3178,11 @@ var require_twitter = __commonJS({
       };
       const videos = tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
       if (videos.length) {
-        return Object.assign({}, base, { duration: Number(videos[0].duration) || 0 });
+        const videoUrls = pickVideoUrls(tweet);
+        return Object.assign({}, base, {
+          duration: Number(videos[0].duration) || 0,
+          ...videoUrls.length > 1 ? { videoUrls } : {}
+        });
       }
       const photos = pickPhotoUrls(tweet);
       if (photos.length) {
@@ -3200,7 +3226,8 @@ var require_twitter = __commonJS({
       getSiteArgs,
       customGetInfo,
       handleExecFailure,
-      pickPhotoUrls
+      pickPhotoUrls,
+      pickVideoUrls
     };
   }
 });
@@ -4420,6 +4447,25 @@ var require_downloader = __commonJS({
           results.push({ path: outputPath, metadata: videoInfo, filename });
         }
         return results;
+      }
+      const directVideos = videoInfo && Array.isArray(videoInfo.videoUrls) ? videoInfo.videoUrls.filter((item) => typeof item === "string" && item.startsWith("https://")) : [];
+      if (directVideos.length > 1) {
+        const multiDir = getTempDir();
+        const multiTitle = sanitizeFilename(videoInfo.title);
+        if (onStatus)
+          onStatus(i18next3.t("ui.downloading"));
+        const multiResults = [];
+        for (let index = 0; index < directVideos.length; index++) {
+          const videoUrl = directVideos[index];
+          await validateUrl(videoUrl);
+          const filename = `${multiTitle}_${index + 1}.mp4`;
+          const outputPath = path.join(multiDir, filename);
+          await execYtDlp([videoUrl, "-o", outputPath, "--no-warnings", "--merge-output-format", "mp4"], void 0, null, false);
+          if (!fs.existsSync(outputPath))
+            throw new Error(i18next3.t("error.fileNotFound"));
+          multiResults.push({ path: outputPath, metadata: videoInfo, filename });
+        }
+        return multiResults;
       }
       const outputDir = getTempDir();
       const sanitizedTitle = sanitizeFilename(videoInfo.title);

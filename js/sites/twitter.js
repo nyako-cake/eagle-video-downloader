@@ -57,6 +57,29 @@ function pickBestVideoUrl(tweet) {
   return null;
 }
 
+/** 一条推文里所有视频的直链（每个视频取最高码率 mp4） */
+function pickVideoUrls(tweet) {
+  const videos = tweet && tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
+  const urls = [];
+  for (const video of videos) {
+    if (!video) continue;
+    const variants = Array.isArray(video.variants)
+      ? video.variants.filter((variant) => {
+        if (!variant || typeof variant.url !== "string") return false;
+        if (!/^https:\/\/video\.twimg\.com\//i.test(variant.url)) return false;
+        const kind = `${variant.content_type || ""} ${variant.container || ""}`.toLowerCase();
+        return kind.includes("mp4") || /\.mp4(\?|$)/i.test(variant.url);
+      })
+      : [];
+    variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    const candidate = variants.length > 0 ? variants[0].url : video.url;
+    if (typeof candidate === "string" && candidate.startsWith("https://") && !urls.includes(candidate)) {
+      urls.push(candidate);
+    }
+  }
+  return urls;
+}
+
 /**
  * Resolve tweet media through a public API (works for NSFW tweets without login).
  */
@@ -169,7 +192,11 @@ async function customGetInfo(url) {
 
   const videos = tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
   if (videos.length) {
-    return Object.assign({}, base, { duration: Number(videos[0].duration) || 0 });
+    const videoUrls = pickVideoUrls(tweet);
+    return Object.assign({}, base, {
+      duration: Number(videos[0].duration) || 0,
+      ...(videoUrls.length > 1 ? { videoUrls } : {}),
+    });
   }
 
   const photos = pickPhotoUrls(tweet);
@@ -218,4 +245,5 @@ module.exports = {
   customGetInfo,
   handleExecFailure,
   pickPhotoUrls,
+  pickVideoUrls,
 };

@@ -441,6 +441,29 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
     return results;
   }
 
+  // 一条推文里多个视频：逐个直链下载，避免只拿到其中一个
+  const directVideos = videoInfo && Array.isArray(videoInfo.videoUrls)
+    ? videoInfo.videoUrls.filter((item) => typeof item === "string" && item.startsWith("https://"))
+    : [];
+
+  if (directVideos.length > 1) {
+    const multiDir = getTempDir();
+    const multiTitle = sanitizeFilename(videoInfo.title);
+    if (onStatus) onStatus(i18next.t("ui.downloading"));
+
+    const multiResults = [];
+    for (let index = 0; index < directVideos.length; index++) {
+      const videoUrl = directVideos[index];
+      await validateUrl(videoUrl);
+      const filename = `${multiTitle}_${index + 1}.mp4`;
+      const outputPath = path.join(multiDir, filename);
+      await execYtDlp([videoUrl, "-o", outputPath, "--no-warnings", "--merge-output-format", "mp4"], undefined, null, false);
+      if (!fs.existsSync(outputPath)) throw new Error(i18next.t("error.fileNotFound"));
+      multiResults.push({ path: outputPath, metadata: videoInfo, filename });
+    }
+    return multiResults;
+  }
+
   const outputDir = getTempDir();
   const sanitizedTitle = sanitizeFilename(videoInfo.title);
   const outputTemplate = path.join(outputDir, `${sanitizedTitle}_%(autonumber)s.%(ext)s`);
