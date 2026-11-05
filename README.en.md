@@ -14,9 +14,31 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.1.0)
+## What's New (3.2.0 - 3.5.1)
 
-Changes in this branch compared to upstream 3.0.0.
+Main changes in this branch compared to upstream 3.0.0.
+
+### Sites and content
+
+- Sankaku (sankaku.app / sankakucomplex.com): download post videos and images; an accessToken in settings unlocks login-only posts
+- Twitter / X images: photo tweets are saved at original size, every image is downloaded, and the tweet text becomes the Eagle annotation
+- Tweets with several videos now download every video instead of only the first one
+
+### Accounts and automatic fetching
+
+- New "Accounts" tab: Sankaku accessToken plus Twitter / X auth_token and ct0, all as password inputs
+- Saved Twitter credentials show the avatar, display name and handle in the accounts tab
+- Automatic likes / bookmarks fetching: choose "Fetch likes" and/or "Fetch bookmarks", pick an interval from 2 minutes to 3 hours, and new posts are queued automatically
+- A "Fetch test" button runs one fetch immediately; the plugin also catches up on everything added since it was last closed
+- Account data, fetch switches, interval and fetch history are scoped per Eagle library
+- Downloads are de-duplicated: the same tweet or Sankaku post is downloaded only once within 24 hours
+
+### LAN sharing
+
+- The bridge listens on 0.0.0.0:43110 and exposes GET /peers to discover machines on the same subnet running this plugin
+- The extension popup can scan and remember devices and send the current page link to a LAN device; tweet action bars also get a share button, and the share menu offers "Share to LAN device"
+- Only the link is sent, nothing is downloaded locally; the receiving machine must have the plugin open and allow inbound 43110
+
 
 ### Downloading
 
@@ -31,26 +53,27 @@ Changes in this branch compared to upstream 3.0.0.
 - Resizable window: minimum 360 × 420, size saved 300ms after resizing stops and immediately on close, restored on next launch
 - Remove records: hover a download item to reveal a × that removes it; active downloads cannot be removed and imported Eagle items are untouched
 
-### Local bridge
+### Bridge and LAN
 
-- The plugin exposes `GET /ping` and `POST /ingest` on `127.0.0.1:43110` for the browser extension
-- Only https urls on x.com / twitter.com / video.twimg.com / pbs.twimg.com are accepted, request body is capped at 16 KB
+- The plugin exposes `GET /ping`, `GET /peers` and `POST /ingest` on `0.0.0.0:43110`, reachable from the local extension and LAN devices
+- `/peers` scans the local subnet and returns machines running this plugin
+- Only https urls on x.com / twitter.com / video.twimg.com / pbs.twimg.com / sankaku are accepted, request body is capped at 16 KB
 - Returns 503 when dependencies are not ready; accepted links are queued and the plugin window is brought to front
 
 ## Browser Extension (Edge / Chromium)
 
-The companion extension lives in `edge-extension/` (Manifest V3) and adds a "Save to Eagle" button under videos and GIFs on X / Twitter.
+The companion extension lives in `edge-extension/` (Manifest V3).
 
 Install: open `edge://extensions`, enable "Developer mode", click "Load unpacked" and select the `edge-extension/` folder.
 
-How it works:
+Features:
 
-- The content script sends the tweet url plus the direct media url to the background service worker
-- The worker posts to the plugin bridge at `127.0.0.1:43110`, so yt-dlp downloads it (works for NSFW and login-only content)
-- If the plugin is closed or not ready, it falls back to Eagle's local API at `127.0.0.1:41595` with the direct media url
-- If neither is available, the button reports "Please open the Eagle plugin"
-
-Note: the bridge path requires the plugin window to be open; with the window closed, only tweets with a directly reachable media url can be saved through the Eagle API.
+- X / Twitter: a "Save to Eagle" button and a "Share to LAN device" button in every tweet action bar; the tweet share menu also offers "Share to LAN device"
+- Liking or bookmarking a post pushes its link automatically, with separate switches in the popup
+- Sankaku: a floating button in the bottom-right corner of the page
+- Popup "LAN devices": scan and remember machines on the same subnet and send the current page link (link only, no local download)
+- When the plugin is closed, the extension tries to wake it through Eagle's local API before pushing
+- If the plugin stays unavailable, direct media urls fall back to Eagle's local API at `127.0.0.1:41595`
 
 ## Installation
 
@@ -62,9 +85,9 @@ On first launch, install yt-dlp (~30MB) from the dependency management page. ffm
 
 ## Usage
 
-1. Copy a video link
-2. Paste it into the plugin input box
-3. Click the download button
+1. Copy a page link
+2. Paste it into the plugin input box (the paste button starts the download automatically)
+3. Or use the save button, like or bookmark on X / Twitter and let the extension push the link
 4. The video is automatically imported to Eagle after download
 
 ## Troubleshooting
