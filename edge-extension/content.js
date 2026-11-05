@@ -211,19 +211,106 @@
     return wrap;
   }
 
-  /** 每条推文都加一个按钮，直接把推文链接推给下载器（不判断内容类型） */
+  const LAN_ACTION_CLASS = "evd-eagle-lan-action";
+  const LAN_ICON_SVG =
+    '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">' +
+    '<path d="M18 8a3 3 0 1 0-2.82-4H15A3 3 0 0 0 18 8Zm-12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm12 8a3 3 0 1 0 2.82 4H21a3 3 0 0 0-3-4ZM8.6 7.5l6.8-3.4a1 1 0 1 1 .9 1.8L9.5 9.3a1 1 0 0 1-.9-1.8Zm0 9 6.8 3.4a1 1 0 1 0 .9-1.8l-6.8-3.4a1 1 0 0 0-.9 1.8ZM8.5 11h7a1 1 0 1 1 0 2h-7a1 1 0 1 1 0-2Z"/>' +
+    "</svg>";
+
+  /** 分享到局域网设备：只发送链接，不在本机下载 */
+  function createLanActionButton(url) {
+    const wrap = document.createElement("div");
+    wrap.className = LAN_ACTION_CLASS;
+    wrap.style.cssText = "display:flex;align-items:center;justify-content:center;";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "evd-eagle-lan-btn";
+    btn.setAttribute("aria-label", "分享到局域网设备");
+    btn.title = "分享到局域网设备";
+    btn.innerHTML = LAN_ICON_SVG;
+    btn.style.cssText = [
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "width:34.75px",
+      "height:34.75px",
+      "padding:0",
+      "border:none",
+      "border-radius:9999px",
+      "background:transparent",
+      "color:rgb(113,118,123)",
+      "cursor:pointer",
+      "transition:background 0.15s ease,color 0.15s ease",
+    ].join(";");
+
+    btn.addEventListener("mouseenter", () => {
+      btn.style.background = "rgba(29,155,240,0.1)";
+      btn.style.color = "rgb(29,155,240)";
+    });
+    btn.addEventListener("mouseleave", () => {
+      btn.style.background = "transparent";
+      btn.style.color = "rgb(113,118,123)";
+    });
+
+    btn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (btn.dataset.state === "sending") return;
+      btn.dataset.state = "sending";
+      btn.style.opacity = "0.6";
+
+      const ip = await getLanDevice();
+      if (!ip) {
+        btn.style.opacity = "1";
+        btn.dataset.state = "idle";
+        showToast("请先在扩展弹窗选择局域网设备");
+        return;
+      }
+
+      let response = null;
+      try {
+        response = await chrome.runtime.sendMessage({ type: "lan-send", url, ip });
+      } catch (e) {
+        response = { ok: false, error: "扩展后台不可用" };
+      }
+      btn.style.opacity = "1";
+      if (response && response.ok) {
+        btn.style.color = "rgb(0,186,124)";
+        showToast("已发送到 " + ip);
+      } else {
+        btn.style.color = "rgb(244,33,46)";
+        showToast((response && response.error) || "发送失败");
+      }
+      setTimeout(() => {
+        btn.dataset.state = "idle";
+        btn.style.color = "rgb(113,118,123)";
+      }, 2400);
+    });
+
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  /** 每条推文都加两个按钮：保存到 Eagle / 分享到局域网设备 */
   function injectForTweet(article) {
     if (!article) return false;
     const group = article.querySelector('[role="group"]');
     if (!group) return false;
-    if (group.querySelector("." + ACTION_CLASS)) return false;
 
     const url = getTweetUrl(article);
     if (!url) return false;
 
-    const wrap = createActionButton(url, getMediaUrl(article));
-    group.appendChild(wrap);
-    return true;
+    let injected = false;
+    if (!group.querySelector("." + ACTION_CLASS)) {
+      group.appendChild(createActionButton(url, getMediaUrl(article)));
+      injected = true;
+    }
+    if (!group.querySelector("." + LAN_ACTION_CLASS)) {
+      group.appendChild(createLanActionButton(url));
+      injected = true;
+    }
+    return injected;
   }
 
   /* ------------------------------------------------------------ like / bookmark -> auto push */
@@ -457,6 +544,105 @@
     }, 300);
   }
 
+  /* ------------------------------------------------------------ lan share menu */
+
+  let pendingShareArticle = null;
+
+  function getLanDevice() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get({ evdLanDevice: "" }, (values) => resolve((values && values.evdLanDevice) || ""));
+      } catch (e) {
+        resolve("");
+      }
+    });
+  }
+
+  /** 在推文的分享菜单里插入「分享到局域网设备」 */
+  function injectLanShareMenuItem(menu) {
+    if (!menu || menu.dataset.evdLanInjected === "1") return false;
+    const article = pendingShareArticle;
+    if (!article || !article.isConnected) return false;
+    const url = getTweetUrl(article);
+    if (!url) return false;
+
+    menu.dataset.evdLanInjected = "1";
+    const item = document.createElement("div");
+    item.setAttribute("role", "menuitem");
+    item.className = "evd-eagle-lan-share";
+    item.textContent = "分享到局域网设备";
+    item.style.cssText = [
+      "display:flex",
+      "align-items:center",
+      "padding:12px 16px",
+      "font-size:15px",
+      "line-height:20px",
+      "color:inherit",
+      "cursor:pointer",
+      "white-space:nowrap",
+    ].join(";");
+    item.addEventListener("mouseenter", () => {
+      item.style.background = "rgba(255,255,255,0.03)";
+    });
+    item.addEventListener("mouseleave", () => {
+      item.style.background = "transparent";
+    });
+    item.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const ip = await getLanDevice();
+      if (!ip) {
+        showToast("请先在扩展弹窗选择局域网设备");
+        return;
+      }
+      let response = null;
+      try {
+        response = await chrome.runtime.sendMessage({ type: "lan-send", url, ip });
+      } catch (e) {
+        response = { ok: false, error: "扩展后台不可用" };
+      }
+      showToast(response && response.ok ? "已发送到 " + ip : (response && response.error) || "发送失败");
+      try {
+        document.body.click();
+      } catch (e) {}
+    });
+    menu.appendChild(item);
+    pendingShareArticle = null;
+    return true;
+  }
+
+  function setupLanShareMenu() {
+    document.addEventListener(
+      "click",
+      (event) => {
+        const target = event.target;
+        if (!target || !target.closest) return;
+        const shareBtn = target.closest('[data-testid="share"]');
+        if (!shareBtn) return;
+        pendingShareArticle = shareBtn.closest('article[data-testid="tweet"]');
+        setTimeout(() => {
+          const menu = document.querySelector('[role="menu"]');
+          if (menu) injectLanShareMenuItem(menu);
+        }, 60);
+      },
+      true
+    );
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!node || node.nodeType !== 1 || !pendingShareArticle) continue;
+          const menu =
+            node.matches && node.matches('[role="menu"]')
+              ? node
+              : node.querySelector && node.querySelector('[role="menu"]');
+          if (menu) injectLanShareMenuItem(menu);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   let started = false;
 
   function start() {
@@ -467,6 +653,7 @@
     scan();
     if (SITE === "twitter") {
       loadPushSettings();
+      setupLanShareMenu();
       document.addEventListener("click", (event) => {
         handleActionClick(event).catch(() => {});
       }, true);
@@ -489,6 +676,8 @@
     scan,
     start,
     handleActionClick,
+    injectLanShareMenuItem,
+    createLanActionButton,
     pushSettings,
     applyStoredSettings,
     injectForTweet,

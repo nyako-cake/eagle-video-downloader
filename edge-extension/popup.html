@@ -118,6 +118,42 @@
       transform: translateX(14px);
     }
 
+    .lan-select {
+      width: 100%;
+      box-sizing: border-box;
+      height: 30px;
+      margin: 6px 0 8px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: #262733;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .lan-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .lan-actions button {
+      margin-top: 0;
+    }
+
+    .lan-actions button.secondary {
+      background: #3a3c4d;
+      flex: 0 0 64px;
+    }
+
+    .lan-status {
+      margin: 8px 0 0;
+      min-height: 14px;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
     button {
       width: 100%;
       margin-top: 10px;
@@ -161,6 +197,19 @@
       <span class="slider"></span>
     </label>
   </div>
+
+  <div class="row">
+    <span class="name">局域网设备</span>
+    <span id="lanCount">未扫描</span>
+  </div>
+  <select id="lanDevices" class="lan-select">
+    <option value="">尚未发现设备</option>
+  </select>
+  <div class="lan-actions">
+    <button id="lanSend" type="button">发送当前页面到局域网</button>
+    <button id="lanRefresh" class="secondary" type="button">刷新</button>
+  </div>
+  <p id="lanStatus" class="lan-status"></p>
 
   <p class="hint">插件没打开时，会退回到 Eagle 本地 API 直接收直链（仅限 mp4 直链，NSFW/需要登录的推文请打开插件）。</p>
   <button id="refresh">重新检测</button>

@@ -4,10 +4,13 @@
   "version": "1.0.0",
   "description": "把 X/Twitter、Sankaku 的视频与图片推送到 Eagle：页面按钮、工具栏图标、点赞或收藏自动推送。",
   "minimum_chrome_version": "109",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "http://127.0.0.1:43110/*",
-    "http://127.0.0.1:41595/*"
+    "http://127.0.0.1:41595/*",
+    "http://192.168.0.0/16/*",
+    "http://10.0.0.0/8/*",
+    "http://172.16.0.0/12/*"
   ],
   "background": {
     "service_worker": "background.js"

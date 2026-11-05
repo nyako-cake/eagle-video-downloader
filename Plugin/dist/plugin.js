@@ -5323,6 +5323,17 @@ var require_twitter_monitor = __commonJS({
       }
       return { ok: true, items: collected };
     }
+    function markTweetSeen(url) {
+      const matched = String(url || "").match(/\/status\/(\d+)/);
+      if (!matched)
+        return false;
+      const seen = readSeen();
+      if (seen.has(matched[1]))
+        return false;
+      seen.add(matched[1]);
+      writeSeen(seen);
+      return true;
+    }
     var defaultApi = { getProfile, fetchLikes, fetchBookmarks, fetchSince };
     async function pollOnce(options = {}) {
       const { baselineOnly = false, api = defaultApi } = options;
@@ -5557,6 +5568,7 @@ var require_twitter_monitor = __commonJS({
       fetchProfile,
       getSavedProfile,
       saveProfile,
+      markTweetSeen,
       getLastCheckAt,
       setLastCheckAt,
       setBaselineAt,
@@ -7095,9 +7107,59 @@ function initializeMainUI() {
   if (urlInput)
     urlInput.focus();
 }
+var RECENT_DOWNLOAD_KEY = "evd.recentDownloads";
+var RECENT_DOWNLOAD_TTL = 24 * 60 * 60 * 1e3;
+var RECENT_DOWNLOAD_LIMIT = 500;
+function downloadKey(url) {
+  const text = String(url || "");
+  const tweet = text.match(/\/status\/(\d+)/);
+  if (tweet)
+    return "tw:" + tweet[1];
+  const sankaku = text.match(/\/(?:posts?|post\/show)\/([A-Za-z0-9]+)/i);
+  if (sankaku)
+    return "sk:" + sankaku[1];
+  return "url:" + text.split("#")[0];
+}
+function loadRecentDownloads() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_DOWNLOAD_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+function saveRecentDownloads(map) {
+  try {
+    const now = Date.now();
+    const entries = Object.entries(map).filter(([, ts]) => now - ts < RECENT_DOWNLOAD_TTL).sort((a, b) => b[1] - a[1]).slice(0, RECENT_DOWNLOAD_LIMIT);
+    localStorage.setItem(RECENT_DOWNLOAD_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch (e) {
+  }
+}
+function isDuplicateDownload(url) {
+  const key = downloadKey(url);
+  const recent = loadRecentDownloads();
+  if (recent[key] && Date.now() - recent[key] < RECENT_DOWNLOAD_TTL)
+    return true;
+  return downloadQueue.some((item) => item.state !== "error" && downloadKey(item.url) === key);
+}
+function recordDownloaded(url) {
+  const key = downloadKey(url);
+  const recent = loadRecentDownloads();
+  recent[key] = Date.now();
+  saveRecentDownloads(recent);
+  try {
+    twitterMonitor.markTweetSeen(url);
+  } catch (e) {
+  }
+}
 function addToQueue(url) {
   if (!isInitialized)
     return;
+  if (isDuplicateDownload(url)) {
+    console.info("[queue] duplicate skipped:", url);
+    return;
+  }
   const item = {
     id: ++queueIdCounter,
     url,
@@ -7192,6 +7254,7 @@ async function executeDownload(item) {
       await importToEagle(result.path, result.metadata, sourceUrl);
       downloader.cleanup(result.path);
     }
+    recordDownloaded(item.url);
   } catch (error) {
     item.state = "error";
     item.error = formatDownloadError(error, item.url);
@@ -7410,6 +7473,94 @@ function writeBridgeResponse(res, status, payload) {
   });
   res.end(body);
 }
+var peersCache = { at: 0, list: [] };
+function getLocalSubnets() {
+  const subnets = /* @__PURE__ */ new Set();
+  try {
+    const os = require("os");
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const info of interfaces[name] || []) {
+        if (info.family === "IPv4" && !info.internal && info.address) {
+          subnets.add(info.address.split(".").slice(0, 3).join("."));
+        }
+      }
+    }
+  } catch (e) {
+  }
+  return Array.from(subnets);
+}
+function probePeer(ip) {
+  return new Promise((resolve) => {
+    const http = require("http");
+    const req = http.get({ host: ip, port: INGEST_PORT, path: "/ping", timeout: 400 }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 4096)
+          res.destroy();
+      });
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(body);
+          if (json && json.app === "eagle-video-downloader") {
+            resolve({ ip, name: json.name || ip, ready: !!json.ready });
+            return;
+          }
+        } catch (e) {
+        }
+        resolve(null);
+      });
+    });
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on("error", () => resolve(null));
+  });
+}
+async function scanLanPeers(force) {
+  const now = Date.now();
+  if (!force && peersCache.list.length && now - peersCache.at < 3e4)
+    return peersCache.list;
+  const selfIps = /* @__PURE__ */ new Set();
+  try {
+    const os = require("os");
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const info of interfaces[name] || []) {
+        if (info.family === "IPv4" && info.address)
+          selfIps.add(info.address);
+      }
+    }
+  } catch (e) {
+  }
+  const targets = [];
+  for (const subnet of getLocalSubnets()) {
+    for (let host = 1; host <= 254; host++) {
+      const ip = subnet + "." + host;
+      if (!selfIps.has(ip))
+        targets.push(ip);
+    }
+  }
+  if (!targets.length)
+    return [];
+  const peers = [];
+  const concurrency = 64;
+  for (let index = 0; index < targets.length; index += concurrency) {
+    const batch = targets.slice(index, index + concurrency);
+    const results = await Promise.all(batch.map((ip) => probePeer(ip)));
+    for (const item of results) {
+      if (item)
+        peers.push(item);
+    }
+    if (peers.length >= 20)
+      break;
+  }
+  peersCache = { at: Date.now(), list: peers };
+  return peers;
+}
 function startIngestBridge() {
   if (startIngestBridge.server)
     return startIngestBridge.server;
@@ -7431,7 +7582,16 @@ function startIngestBridge() {
       return;
     }
     if (pathname === "/ping") {
-      writeBridgeResponse(res, 200, { ok: true, app: "eagle-video-downloader", ready: !!isInitialized });
+      let name = "";
+      try {
+        name = require("os").hostname();
+      } catch (e) {
+      }
+      writeBridgeResponse(res, 200, { ok: true, app: "eagle-video-downloader", ready: !!isInitialized, name });
+      return;
+    }
+    if (pathname === "/peers") {
+      scanLanPeers().then((peers) => writeBridgeResponse(res, 200, { ok: true, peers })).catch(() => writeBridgeResponse(res, 200, { ok: true, peers: [] }));
       return;
     }
     if (pathname !== "/ingest" || req.method !== "POST") {
@@ -7481,7 +7641,7 @@ function startIngestBridge() {
   server.on("error", (error) => {
     console.warn("[ingest] bridge error:", error && error.message);
   });
-  server.listen(INGEST_PORT, "127.0.0.1");
+  server.listen(INGEST_PORT, "0.0.0.0");
   startIngestBridge.server = server;
   return server;
 }

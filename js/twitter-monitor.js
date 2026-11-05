@@ -370,6 +370,17 @@ async function fetchSince(auth, kind, userId, since, maxPages) {
   return { ok: true, items: collected };
 }
 
+/** 把某条推文标记为已处理，避免扩展推送与监控重复下载 */
+function markTweetSeen(url) {
+  const matched = String(url || "").match(/\/status\/(\d+)/);
+  if (!matched) return false;
+  const seen = readSeen();
+  if (seen.has(matched[1])) return false;
+  seen.add(matched[1]);
+  writeSeen(seen);
+  return true;
+}
+
 /* --------------------------------------------------------------- poll */
 
 const defaultApi = { getProfile, fetchLikes, fetchBookmarks, fetchSince };
@@ -634,6 +645,7 @@ module.exports = {
   fetchProfile,
   getSavedProfile,
   saveProfile,
+  markTweetSeen,
   getLastCheckAt,
   setLastCheckAt,
   setBaselineAt,

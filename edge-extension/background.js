@@ -118,6 +118,61 @@ async function wakePlugin() {
   return false;
 }
 
+const BRIDGE_PEERS = "http://127.0.0.1:43110/peers";
+
+function isPrivateIp(ip) {
+  return /^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+}
+
+/** 让本机插件扫描同网段内运行本插件的设备 */
+async function getLanPeers() {
+  const readPeers = async () => {
+    const response = await fetchWithTimeout(BRIDGE_PEERS, { method: "GET" }, 25000);
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) throw new Error("bad-response");
+    return Array.isArray(data.peers) ? data.peers : [];
+  };
+
+  try {
+    return { ok: true, peers: await readPeers() };
+  } catch (e) {
+    // 本机插件没开时先唤醒，再读设备列表
+    const woke = await wakePlugin();
+    if (!woke) return { ok: false, error: "本机插件未运行，无法扫描局域网设备" };
+    try {
+      return { ok: true, peers: await readPeers() };
+    } catch (e2) {
+      return { ok: false, error: "读取设备列表失败" };
+    }
+  }
+}
+
+/** 只把链接发送到局域网设备，不在本机下载 */
+async function sendToLan(url, ip) {
+  if (!ip || !isPrivateIp(ip)) return { ok: false, error: "无效的局域网地址" };
+  const isTweetUrl = /^https:\/\/(x|twitter|mobile\.twitter)\.com\//i.test(url);
+  const isSankakuUrl = /^https:\/\/(?:[a-z0-9-]+\.)*sankaku(?:complex)?\.(?:app|com)\//i.test(url);
+  if (!isTweetUrl && !isSankakuUrl) return { ok: false, error: "不支持的页面链接" };
+
+  try {
+    const response = await fetchWithTimeout(
+      "http://" + ip + ":43110/ingest",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      },
+      8000
+    );
+    const data = await response.json().catch(() => null);
+    if (response.ok && data && data.ok) return { ok: true };
+    if (response.status === 503) return { ok: false, error: "目标设备插件未就绪" };
+    return { ok: false, error: (data && data.error) || "发送失败" };
+  } catch (e) {
+    return { ok: false, error: "无法连接设备（请确认同网段且插件已打开）" };
+  }
+}
+
 async function ingest(message) {
   const url = typeof message.url === "string" ? message.url.trim() : "";
   const mediaUrl = typeof message.mediaUrl === "string" ? message.mediaUrl.trim() : "";
@@ -180,6 +235,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "ingest") {
     ingest(message)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: (error && error.message) || "未知错误" }));
+    return true;
+  }
+
+  if (message.type === "lan-peers") {
+    getLanPeers()
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: (error && error.message) || "未知错误" }));
+    return true;
+  }
+
+  if (message.type === "lan-send") {
+    const url = typeof message.url === "string" ? message.url.trim() : "";
+    const ip = typeof message.ip === "string" ? message.ip.trim() : "";
+    sendToLan(url, ip)
       .then(sendResponse)
       .catch((error) => sendResponse({ ok: false, error: (error && error.message) || "未知错误" }));
     return true;
