@@ -16,6 +16,8 @@ const {
 const { isNetworkError } = require("./net-guard");
 const downloader = require("./downloader");
 const sankakuAuth = require("./sankaku-auth");
+const twitterAuth = require("./twitter-auth");
+const twitterMonitor = require("./twitter-monitor");
 const ui = require("./ui");
 
 // 状态管理
@@ -165,6 +167,37 @@ eagle.onPluginCreate(async (plugin) => {
   applyTranslations();
   ui.updateTheme();
   setupEventListeners();
+  startLibraryWatcher();
+  try {
+    ui.renderTwitterProfile();
+    twitterMonitor
+      .fetchProfile()
+      .then((profile) => {
+        if (profile && profile.ok) ui.renderTwitterProfile(profile);
+      })
+      .catch(() => {});
+  } catch (e) {}
+  twitterMonitor
+    .init()
+    .then((result) => {
+      const status = document.getElementById("twitterAuthStatus");
+      if (!status || !result) return;
+      if (result.skipped) return;
+      if (result.ok === false) {
+        status.textContent = i18next.t("deps.twitterAuthFailed", { error: result.error || "error" });
+        return;
+      }
+      if (result.baseline) {
+        status.textContent = i18next.t("deps.twitterAuthReady");
+        return;
+      }
+      const parts = [i18next.t("deps.twitterCatchup", { count: result.newCount || 0 })];
+      if (result.truncated) parts.push(i18next.t("deps.twitterCatchupTruncated"));
+      status.textContent = parts.join(" · ");
+    })
+    .catch((e) => {
+      console.warn("[twitter-monitor] init failed:", e && e.message);
+    });
   setupWindowState();
   startIngestBridge();
   downloader.setQualityPrefs({
@@ -185,6 +218,34 @@ eagle.onThemeChanged(() => {
 /**
  * 设置 UI 事件监听器
  */
+let lastLibraryPath = null;
+
+/** 资源库切换时，账号与监控状态跟着切换 */
+function startLibraryWatcher() {
+  try {
+    lastLibraryPath = (eagle.library && eagle.library.path) || "";
+  } catch (e) {
+    lastLibraryPath = "";
+  }
+
+  setInterval(() => {
+    let current = "";
+    try {
+      current = (eagle.library && eagle.library.path) || "";
+    } catch (e) {
+      current = "";
+    }
+    if (current === lastLibraryPath) return;
+    lastLibraryPath = current;
+    try {
+      ui.refreshAccountFields();
+    } catch (e) {}
+    try {
+      twitterMonitor.refreshForLibrary();
+    } catch (e) {}
+  }, 3000);
+}
+
 function setupEventListeners() {
   document.getElementById("closeButton").addEventListener("click", () => {
     saveWindowSize();
@@ -252,7 +313,6 @@ function setupEventListeners() {
         return;
       }
       sankakuAuth.setStoredAuth(authInput.value);
-      ui.autoGrowTextarea(authInput);
       if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthSaved");
     });
   }
@@ -262,6 +322,125 @@ function setupEventListeners() {
       sankakuAuth.setStoredAuth("");
       authInput.value = "";
       if (authStatus) authStatus.textContent = i18next.t("deps.sankakuAuthCleared");
+    });
+  }
+
+  // Twitter / X 账号：保存并测试、清除、监控间隔
+  const twToken = document.getElementById("twitterAuthToken");
+  const twCt0 = document.getElementById("twitterCt0");
+  const twStatus = document.getElementById("twitterAuthStatus");
+  const twSave = document.getElementById("twitterAuthSave");
+  const twClear = document.getElementById("twitterAuthClear");
+  const twIntervals = document.getElementById("twitterMonitorInterval");
+  const setTwStatus = (text) => {
+    if (twStatus) twStatus.textContent = text;
+  };
+
+  const getIntervalMinutes = () => {
+    return twIntervals ? Number(twIntervals.value) || 0 : 0;
+  };
+
+  const describeInterval = (ms) => {
+    if (ms % 3600000 === 0) return ms / 3600000 + " " + i18next.t("deps.unitHours");
+    return ms / 60000 + " " + i18next.t("deps.unitMinutes");
+  };
+
+  /** 按当前选中的时间选项启动监控；选「关闭」则停止 */
+  const applyInterval = () => {
+    const minutes = getIntervalMinutes();
+    ui.setIntervalChoice(minutes);
+    if (!minutes) {
+      twitterMonitor.stop();
+      setTwStatus(i18next.t("deps.twitterMonitorOff"));
+      return false;
+    }
+    if (!twitterAuth.hasAuth()) {
+      setTwStatus(i18next.t("deps.twitterAuthInvalid"));
+      return false;
+    }
+    const intervalMs = Math.max(twitterMonitor.MIN_INTERVAL_MS, minutes * 60000);
+    twitterMonitor.start(intervalMs);
+    setTwStatus(i18next.t("deps.twitterMonitorOn", { interval: describeInterval(intervalMs) }));
+    return true;
+  };
+
+  if (twSave && twToken && twCt0) {
+    twSave.addEventListener("click", async () => {
+      const cookie = twitterAuth.buildCookie(twToken.value, twCt0.value);
+      if (!cookie) {
+        setTwStatus(i18next.t("deps.twitterAuthInvalid"));
+        return;
+      }
+      twitterAuth.setStoredCookie(cookie);
+      setTwStatus(i18next.t("deps.twitterAuthTesting"));
+
+      const result = await twitterMonitor.testConnection();
+      if (!result.ok) {
+        setTwStatus(i18next.t("deps.twitterAuthFailed", { error: result.error }));
+        return;
+      }
+      const parts = [i18next.t("deps.twitterAuthSaved", { name: result.screenName || "?" })];
+      if (!result.likesOk) parts.push("likes: " + (result.likesError || "error"));
+      if (!result.bookmarksOk) parts.push("bookmarks: " + (result.bookmarksError || "error"));
+      setTwStatus(parts.join(" \u00b7 "));
+      ui.renderTwitterProfile(result);
+      applyInterval();
+    });
+  }
+
+  if (twClear && twToken && twCt0) {
+    twClear.addEventListener("click", () => {
+      twitterAuth.setStoredCookie("");
+      twToken.value = "";
+      twCt0.value = "";
+      twitterMonitor.saveProfile({});
+      ui.renderTwitterProfile(null);
+      setTwStatus(i18next.t("deps.twitterAuthCleared"));
+      twitterMonitor.stop();
+      if (twIntervals) twIntervals.value = "0";
+    });
+  }
+
+  if (twIntervals) twIntervals.addEventListener("change", applyInterval);
+
+  const twLikes = document.getElementById("twitterMonitorLikes");
+  const twBookmarks = document.getElementById("twitterMonitorBookmarks");
+  const onSourceChange = () => {
+    twitterMonitor.setPrefs({ likes: !!(twLikes && twLikes.checked), bookmarks: !!(twBookmarks && twBookmarks.checked) });
+    if (!(twLikes && twLikes.checked) && !(twBookmarks && twBookmarks.checked)) {
+      twitterMonitor.stop();
+      setTwStatus(i18next.t("deps.twitterMonitorNoSource"));
+      return;
+    }
+    applyInterval();
+  };
+  if (twLikes) twLikes.addEventListener("change", onSourceChange);
+  if (twBookmarks) twBookmarks.addEventListener("change", onSourceChange);
+
+  // 抓取测试：立即执行一次抓取
+  const twTest = document.getElementById("twitterMonitorTest");
+  if (twTest) {
+    twTest.addEventListener("click", async () => {
+      if (!twitterAuth.hasAuth()) {
+        setTwStatus(i18next.t("deps.twitterAuthInvalid"));
+        return;
+      }
+      twTest.disabled = true;
+      setTwStatus(i18next.t("deps.twitterFetching"));
+      let result = null;
+      try {
+        result = await twitterMonitor.catchUp();
+      } catch (e) {
+        result = { ok: false, error: (e && e.message) || "error" };
+      }
+      twTest.disabled = false;
+      if (!result || result.ok === false) {
+        setTwStatus(i18next.t("deps.twitterAuthFailed", { error: (result && result.error) || "error" }));
+        return;
+      }
+      const parts = [i18next.t("deps.twitterCatchup", { count: result.newCount || 0 })];
+      if (result.truncated) parts.push(i18next.t("deps.twitterCatchupTruncated"));
+      setTwStatus(parts.join(" \u00b7 "));
     });
   }
 

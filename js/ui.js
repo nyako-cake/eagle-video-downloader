@@ -4,6 +4,30 @@
  */
 
 const sankakuAuth = require("./sankaku-auth");
+const twitterAuth = require("./twitter-auth");
+const twitterMonitor = require("./twitter-monitor");
+const { scopedKey } = require("./library-context");
+
+const INTERVAL_CHOICE_KEY = "eagle-video-downloader.twitterIntervalChoice";
+
+/** 读取用户上次选择的时间选项（分钟），未选过返回 null */
+function getIntervalChoice() {
+  try {
+    const raw = localStorage.getItem(scopedKey(INTERVAL_CHOICE_KEY));
+    if (raw === null) return null;
+    return Number(raw) || 0;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setIntervalChoice(minutes) {
+  try {
+    localStorage.setItem(scopedKey(INTERVAL_CHOICE_KEY), String(Number(minutes) || 0));
+  } catch (e) {
+    // ignore
+  }
+}
 
 /**
  * 更新 UI 主题
@@ -306,6 +330,121 @@ function switchSubpageTab(tabName) {
   }
 }
 
+/** 常驻显示推特账号：头像 / 昵称 / @用户名 / 数字 ID */
+function renderTwitterProfile(profile) {
+  const box = document.getElementById("twitterProfile");
+  if (!box) return;
+  const data = profile || twitterMonitor.getSavedProfile();
+  if (!data || (!data.screenName && !data.name)) {
+    box.classList.add("hidden");
+    return;
+  }
+  const avatar = document.getElementById("twitterAvatar");
+  const name = document.getElementById("twitterName");
+  const handle = document.getElementById("twitterHandle");
+  const avatarSrc = data.avatarData || data.avatar;
+
+  if (avatar) {
+    if (avatarSrc) {
+      avatar.onerror = () => {
+        avatar.style.display = "none";
+      };
+      avatar.src = avatarSrc;
+      avatar.style.display = "";
+    } else {
+      avatar.removeAttribute("src");
+      avatar.style.display = "none";
+    }
+  }
+  if (name) name.textContent = data.name || data.screenName || "";
+  if (handle) handle.textContent = data.screenName ? "@" + data.screenName : "";
+  box.classList.remove("hidden");
+}
+
+/** 回填「下载点赞 / 下载收藏」复选框 */
+function applySourceCheckboxes() {
+  const likesBox = document.getElementById("twitterMonitorLikes");
+  const bookmarksBox = document.getElementById("twitterMonitorBookmarks");
+  const prefs = twitterMonitor.getPrefs();
+  if (likesBox) likesBox.checked = prefs.likes !== false;
+  if (bookmarksBox) bookmarksBox.checked = prefs.bookmarks !== false;
+}
+
+/** 把监控间隔（毫秒）回填到时间下拉框 */
+/** 让时间下拉框宽度等于最长选项文字的宽度 */
+function fitIntervalSelectWidth() {
+  const select = document.getElementById("twitterMonitorInterval");
+  if (!select) return;
+  try {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const style = typeof getComputedStyle === "function" ? getComputedStyle(select) : null;
+    const font = style && style.font ? style.font : "12px sans-serif";
+    context.font = font;
+    let maxWidth = 0;
+    for (const option of Array.from(select.options)) {
+      maxWidth = Math.max(maxWidth, context.measureText(option.textContent || "").width);
+    }
+    if (maxWidth > 0) {
+      const width = Math.ceil(maxWidth + 44);
+      select.style.width = width + "px";
+      const column = select.parentElement;
+      if (column && column.classList.contains("setting-monitor-right")) {
+        column.style.width = width + "px";
+      }
+    }
+  } catch (e) {
+    // 忽略测量失败
+  }
+}
+
+function applyIntervalSelect() {
+  const select = document.getElementById("twitterMonitorInterval");
+  if (!select) return;
+
+  const prefs = twitterMonitor.getPrefs();
+  const savedChoice = getIntervalChoice();
+  const minutes =
+    savedChoice === null ? (prefs.enabled ? Math.max(2, Math.round((prefs.ms || 600000) / 60000)) : 0) : savedChoice;
+  const values = Array.from(select.options).map((option) => Number(option.value));
+  let chosen = values.includes(minutes) ? minutes : 0;
+  if (!chosen && minutes) {
+    const positives = values.filter((value) => value > 0);
+    chosen = positives.reduce((best, value) => (Math.abs(value - minutes) < Math.abs(best - minutes) ? value : best), positives[0]);
+  }
+  select.value = String(chosen || 0);
+  fitIntervalSelectWidth();
+}
+
+/** 资源库切换后，重新从当前资源库读取账号与监控设置 */
+function refreshAccountFields() {
+  const sankakuInput = document.getElementById("sankakuAuthInput");
+  if (sankakuInput) {
+    sankakuInput.value = sankakuAuth.getStoredAuth();
+    autoGrowTextarea(sankakuInput);
+  }
+  const sankakuStatus = document.getElementById("sankakuAuthStatus");
+  if (sankakuStatus) sankakuStatus.textContent = "";
+
+  const token = document.getElementById("twitterAuthToken");
+  const ct0 = document.getElementById("twitterCt0");
+  if (token || ct0) {
+    const parts = twitterAuth.splitCookie();
+    if (token) token.value = parts.authToken;
+    if (ct0) ct0.value = parts.ct0;
+  }
+
+  applyIntervalSelect();
+  applySourceCheckboxes();
+
+  const status = document.getElementById("twitterAuthStatus");
+  if (status) {
+    status.textContent = twitterAuth.hasAuth() ? i18next.t("deps.twitterAuthReady") : "";
+  }
+  renderTwitterProfile();
+}
+
 /** 让 textarea 跟随内容高度（不出现滚动条） */
 function autoGrowTextarea(el) {
   if (!el) return;
@@ -324,6 +463,7 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnDeps = document.getElementById("tabBtnDeps");
+  const tabBtnAccount = document.getElementById("tabBtnAccount");
   const autoAddLabel = document.getElementById("autoAddSourceLabel");
   const autoAddHint = document.getElementById("autoAddSourceHint");
   const autoAddToggle = document.getElementById("autoAddSourceToggle");
@@ -376,15 +516,54 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (authLabel) authLabel.textContent = i18next.t("deps.sankakuAuthLabel");
   if (authHint) authHint.textContent = i18next.t("deps.sankakuAuthHint");
   if (authInput) {
-    authInput.placeholder = i18next.t("deps.sankakuAuthPlaceholder");
     authInput.value = sankakuAuth.getStoredAuth();
-    autoGrowTextarea(authInput);
-    if (authInput.dataset.growBound !== "1") {
-      authInput.dataset.growBound = "1";
-      authInput.addEventListener("input", () => autoGrowTextarea(authInput));
-    }
   }
+  const sankakuTokenLabel = document.getElementById("sankakuAuthTokenLabel");
+  if (sankakuTokenLabel) sankakuTokenLabel.textContent = "accessToken";
   if (tabBtnAccount) tabBtnAccount.textContent = i18next.t("deps.tabAccount");
+
+  const twLabel = document.getElementById("twitterAuthLabel");
+  const twHint = document.getElementById("twitterAuthHint");
+  const twMonLabel = document.getElementById("twitterMonitorLabel");
+  const twMonHint = document.getElementById("twitterMonitorHint");
+  if (twLabel) twLabel.textContent = i18next.t("deps.twitterAuthLabel");
+  if (twHint) twHint.textContent = i18next.t("deps.twitterAuthHint");
+  if (twMonLabel) twMonLabel.textContent = i18next.t("deps.twitterMonitorLabel");
+  if (twMonHint) twMonHint.textContent = i18next.t("deps.twitterMonitorHint");
+
+  renderTwitterProfile();
+  const twitterToken = document.getElementById("twitterAuthToken");
+  const twitterCt0 = document.getElementById("twitterCt0");
+  const twitterStatus = document.getElementById("twitterAuthStatus");
+  const twitterInterval = document.getElementById("twitterMonitorInterval");
+  if (twitterToken || twitterCt0) {
+    const parts = twitterAuth.splitCookie();
+    if (twitterToken) twitterToken.value = parts.authToken;
+    if (twitterCt0) twitterCt0.value = parts.ct0;
+  }
+  const twitterTokenLabel = document.getElementById("twitterAuthTokenLabel");
+  const twitterCt0Label = document.getElementById("twitterCt0Label");
+  if (twitterTokenLabel) twitterTokenLabel.textContent = "auth_token";
+  if (twitterCt0Label) twitterCt0Label.textContent = "ct0";
+  if (twitterStatus && !twitterStatus.textContent) {
+    twitterStatus.textContent = twitterAuth.hasAuth() ? i18next.t("deps.twitterAuthReady") : "";
+  }
+  if (twitterInterval) {
+    const prefs = twitterMonitor.getPrefs();
+    twitterInterval.value = prefs.enabled ? String(prefs.minutes) : "0";
+  }
+  applyIntervalSelect();
+  applySourceCheckboxes();
+  const likesLabel = document.getElementById("twitterMonitorLikesLabel");
+  const bookmarksLabel = document.getElementById("twitterMonitorBookmarksLabel");
+  if (likesLabel) likesLabel.textContent = i18next.t("deps.twitterMonitorLikesLabel");
+  if (bookmarksLabel) bookmarksLabel.textContent = i18next.t("deps.twitterMonitorBookmarksLabel");
+  const twSaveBtn = document.getElementById("twitterAuthSave");
+  const twClearBtn = document.getElementById("twitterAuthClear");
+  if (twSaveBtn) twSaveBtn.textContent = i18next.t("deps.twitterAuthSave");
+  if (twClearBtn) twClearBtn.textContent = i18next.t("deps.twitterAuthClear");
+  const twMinHint = document.getElementById("twitterMonitorMinHint");
+  if (twMinHint) twMinHint.textContent = i18next.t("deps.twitterMonitorMinHint");
   if (authSave) authSave.textContent = i18next.t("deps.sankakuAuthSave");
   if (authClear) authClear.textContent = i18next.t("deps.sankakuAuthClear");
 
@@ -596,6 +775,12 @@ module.exports = {
   setDepsGating,
   switchSubpageTab,
   autoGrowTextarea,
+  refreshAccountFields,
+  applyIntervalSelect,
+  getIntervalChoice,
+  setIntervalChoice,
+  applySourceCheckboxes,
+  renderTwitterProfile,
   updateDepsBadge,
   updateYtdlpCard,
   updateFfmpegCard,

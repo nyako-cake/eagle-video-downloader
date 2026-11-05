@@ -6,12 +6,33 @@
  * accessToken（或整段 cookie）粘贴到设置中，这里负责保存与解析。
  */
 
+const { scopedKey } = require("./library-context");
+
 const STORAGE_KEY = "eagle-video-downloader.sankakuAuth";
+
+function currentKey() {
+  if (typeof localStorage === "undefined") return STORAGE_KEY;
+  return scopedKey(STORAGE_KEY);
+}
+
+function migrateLegacyKey(key) {
+  try {
+    if (typeof localStorage === "undefined" || key === STORAGE_KEY) return;
+    if (localStorage.getItem(key) === null) {
+      const legacy = localStorage.getItem(STORAGE_KEY);
+      if (legacy !== null) localStorage.setItem(key, legacy);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
 
 function getStoredAuth() {
   try {
     if (typeof localStorage === "undefined") return "";
-    return localStorage.getItem(STORAGE_KEY) || "";
+    const key = currentKey();
+    migrateLegacyKey(key);
+    return localStorage.getItem(key) || "";
   } catch (e) {
     return "";
   }
@@ -20,12 +41,13 @@ function getStoredAuth() {
 function setStoredAuth(value) {
   try {
     if (typeof localStorage === "undefined") return;
+    const key = currentKey();
     const text = String(value || "").trim();
     if (!text) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(key);
       return;
     }
-    localStorage.setItem(STORAGE_KEY, text);
+    localStorage.setItem(key, text);
   } catch (e) {
     // ignore storage failures (private mode, quota, ...)
   }

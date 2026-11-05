@@ -667,6 +667,241 @@
       gap: 6px;
     }
 
+    .account-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .account-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+
+    .account-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .account-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .account-handle {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .account-uid {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.35);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    .setting-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .setting-field-label {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 11px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    .setting-text-input {
+      width: 100%;
+      box-sizing: border-box;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 12px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      outline: none;
+    }
+
+    .setting-text-input:focus {
+      border-color: rgba(49, 151, 255, 0.7);
+    }
+
+    .setting-field-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .setting-field-row .setting-field {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
+    }
+
+    .setting-interval-select {
+      width: 96px;
+      flex-shrink: 0;
+      text-align: center;
+      text-align-last: center;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    .setting-interval-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .setting-interval-input {
+      width: 48px;
+      min-width: 40px;
+      max-width: 96px;
+      flex-shrink: 0;
+      text-align: center;
+      padding: 0 6px;
+    }
+
+    .setting-interval-unit {
+      width: 76px;
+      flex-shrink: 0;
+      padding: 0 6px;
+    }
+
+    .setting-interval-hint {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      line-height: 1.4;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .setting-monitor-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .setting-monitor-right {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .setting-test-btn {
+      width: 100%;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      background: #555975;
+      color: #ffffff;
+      font-size: 12px;
+      line-height: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .setting-test-btn:hover {
+      background: #64688a;
+    }
+
+    .setting-test-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .setting-checkboxes {
+      gap: 20px;
+    }
+
+    .setting-checkboxes-column {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .setting-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--fg1, #fff);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      writing-mode: horizontal-tb;
+    }
+
+    .setting-check input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: #3197ff;
+      cursor: pointer;
+    }
+
+    .setting-radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .setting-radio {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .setting-radio input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .setting-radio:has(input:checked) {
+      background: rgba(49, 151, 255, 0.18);
+      border-color: rgba(49, 151, 255, 0.7);
+      color: #fff;
+    }
+
     .setting-auth-input {
       width: 100%;
       min-height: 38px;
@@ -1105,11 +1340,82 @@
               <div class="settings-card">
                 <div class="setting-row setting-row-column">
                   <div class="setting-info">
+                    <span id="twitterAuthLabel" class="setting-title">Twitter / X Account</span>
+                    <span id="twitterAuthHint" class="setting-desc">Paste x.com cookies (auth_token and ct0) to watch new likes and bookmarks.</span>
+                  </div>
+
+                  <div id="twitterProfile" class="account-profile hidden no-drag">
+                    <img id="twitterAvatar" class="account-avatar" alt="" />
+                    <div class="account-meta">
+                      <span id="twitterName" class="account-name"></span>
+                      <span id="twitterHandle" class="account-handle"></span>
+                    </div>
+                  </div>
+
+                  <div class="setting-auth-wrap no-drag">
+                    <div class="setting-field-row">
+                      <label class="setting-field">
+                        <span class="setting-field-label" id="twitterAuthTokenLabel">auth_token</span>
+                        <input id="twitterAuthToken" class="setting-text-input no-drag" type="password" spellcheck="false" autocomplete="off" placeholder="auth_token" />
+                      </label>
+                      <label class="setting-field">
+                        <span class="setting-field-label" id="twitterCt0Label">ct0</span>
+                        <input id="twitterCt0" class="setting-text-input no-drag" type="password" spellcheck="false" autocomplete="off" placeholder="ct0" />
+                      </label>
+                    </div>
+                    <div class="setting-auth-actions">
+                      <button id="twitterAuthSave" class="dep-btn" type="button">Save &amp; Test</button>
+                      <button id="twitterAuthClear" class="dep-btn danger" type="button">Clear</button>
+                      <span id="twitterAuthStatus" class="setting-auth-status"></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="setting-row setting-row-column">
+                  <div class="setting-info">
+                    <span id="twitterMonitorLabel" class="setting-title">自动获取点赞与收藏</span>
+                    <span id="twitterMonitorHint" class="setting-desc">New likes and bookmarks are pushed to the download queue automatically.</span>
+                  </div>
+
+                  <div class="setting-monitor-controls no-drag">
+                    <div class="setting-checkboxes setting-checkboxes-column">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twitterMonitorLikes" checked />
+                        <span id="twitterMonitorLikesLabel">抓取点赞</span>
+                      </label>
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twitterMonitorBookmarks" checked />
+                        <span id="twitterMonitorBookmarksLabel">抓取收藏</span>
+                      </label>
+                    </div>
+
+                    <div class="setting-monitor-right no-drag">
+                      <button id="twitterMonitorTest" class="setting-test-btn no-drag" type="button">抓取测试</button>
+                      <select id="twitterMonitorInterval" class="setting-select setting-interval-select no-drag">
+                        <option value="0">关闭</option>
+                        <option value="2">2 分钟</option>
+                        <option value="5">5 分钟</option>
+                        <option value="10" selected>10 分钟</option>
+                        <option value="30">30 分钟</option>
+                        <option value="60">1 小时</option>
+                        <option value="180">3 小时</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="setting-row setting-row-column">
+                  <div class="setting-info">
                     <span id="sankakuAuthLabel" class="setting-title">Sankaku Account</span>
                     <span id="sankakuAuthHint" class="setting-desc">Paste the accessToken cookie from a logged-in sankaku.app session to download login-only posts.</span>
                   </div>
                   <div class="setting-auth-wrap no-drag">
-                    <textarea id="sankakuAuthInput" class="setting-auth-input no-drag" rows="2" spellcheck="false" placeholder="accessToken=..."></textarea>
+                    <label class="setting-field">
+                      <span class="setting-field-label" id="sankakuAuthTokenLabel">accessToken</span>
+                      <input id="sankakuAuthInput" class="setting-text-input no-drag" type="password" spellcheck="false" autocomplete="off" placeholder="accessToken" />
+                    </label>
                     <div class="setting-auth-actions">
                       <button id="sankakuAuthSave" class="dep-btn" type="button">Save</button>
                       <button id="sankakuAuthClear" class="dep-btn danger" type="button">Clear</button>
