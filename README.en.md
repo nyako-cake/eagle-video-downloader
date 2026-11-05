@@ -49,6 +49,7 @@ Main changes in this branch compared to upstream 3.0.0.
 
 ### UI and interaction
 
+- UI follows Eagle's light panel style; the Appearance section offers 6 themes or a "Follow Eagle theme" switch that tracks Eagle's appearance
 - Paste button in the input bar: reads the system clipboard, extracts an https link from mixed text and enables the download button automatically
 - Always on top: a pin button in the header calls `eagle.window.setAlwaysOnTop` and persists the state in localStorage
 - Resizable window: minimum 360 × 420, size saved 300ms after resizing stops and immediately on close, restored on next launch

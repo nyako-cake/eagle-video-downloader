@@ -6073,8 +6073,19 @@ var require_ui = __commonJS({
       } catch (e) {
       }
     }
-    function updateTheme() {
-      const THEME_SUPPORT = {
+    var THEME_FOLLOW_KEY = "eagle-video-downloader.followEagleTheme";
+    var THEME_KEY = "eagle-video-downloader.theme";
+    var THEME_NAMES = ["light", "lightgray", "gray", "dark", "blue", "purple"];
+    function getFollowEagleTheme() {
+      const value = localStorage.getItem(THEME_FOLLOW_KEY);
+      return value === null ? true : value === "true";
+    }
+    function getManualTheme() {
+      const value = localStorage.getItem(THEME_KEY);
+      return THEME_NAMES.includes(value) ? value : "light";
+    }
+    function eagleThemeName() {
+      const support = {
         AUTO: eagle.app.isDarkColors() ? "gray" : "light",
         LIGHT: "light",
         LIGHTGRAY: "lightgray",
@@ -6083,13 +6094,64 @@ var require_ui = __commonJS({
         BLUE: "blue",
         PURPLE: "purple"
       };
-      const theme = eagle.app.theme.toUpperCase();
-      const themeName = THEME_SUPPORT[theme] ?? "dark";
+      try {
+        return support[String(eagle.app.theme).toUpperCase()] || "light";
+      } catch (e) {
+        return "light";
+      }
+    }
+    function currentThemeName() {
+      return getFollowEagleTheme() ? eagleThemeName() : getManualTheme();
+    }
+    function setFollowEagleTheme(value) {
+      localStorage.setItem(THEME_FOLLOW_KEY, String(!!value));
+      if (!value)
+        localStorage.setItem(THEME_KEY, eagleThemeName());
+      updateTheme();
+    }
+    function setManualTheme(name) {
+      if (!THEME_NAMES.includes(name))
+        return;
+      localStorage.setItem(THEME_KEY, name);
+      localStorage.setItem(THEME_FOLLOW_KEY, "false");
+      updateTheme();
+    }
+    function syncThemeControls(themeName) {
+      const follow = getFollowEagleTheme();
+      const toggle = document.getElementById("followThemeToggle");
+      if (toggle)
+        toggle.checked = follow;
+      const active = themeName || currentThemeName();
+      document.querySelectorAll(".theme-swatch").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.theme === active);
+        btn.classList.toggle("disabled", follow);
+      });
+    }
+    var themeControlsBound = false;
+    function setupThemeControls() {
+      syncThemeControls();
+      if (themeControlsBound)
+        return;
+      themeControlsBound = true;
+      const toggle = document.getElementById("followThemeToggle");
+      if (toggle) {
+        toggle.addEventListener("change", () => setFollowEagleTheme(toggle.checked));
+      }
+      document.querySelectorAll(".theme-swatch").forEach((btn) => {
+        btn.addEventListener("click", () => setManualTheme(btn.dataset.theme));
+      });
+    }
+    function updateTheme() {
+      const themeName = currentThemeName();
       const htmlEl = document.querySelector("html");
       htmlEl.classList.add("no-transition");
       htmlEl.setAttribute("theme", themeName);
-      htmlEl.setAttribute("platform", eagle.app.platform);
+      try {
+        htmlEl.setAttribute("platform", eagle.app.platform);
+      } catch (e) {
+      }
       htmlEl.classList.remove("no-transition");
+      syncThemeControls(themeName);
     }
     function showMainUI() {
       var _a;
@@ -6446,6 +6508,11 @@ var require_ui = __commonJS({
       const notice = document.getElementById("depsNotice");
       const ytdlpDesc = document.getElementById("ytdlpDesc");
       const ffmpegDesc = document.getElementById("ffmpegDesc");
+      const appearanceTitle = document.getElementById("appearanceTitle");
+      const themeLabel = document.getElementById("themeLabel");
+      const themeHint = document.getElementById("themeHint");
+      const followThemeLabel = document.getElementById("followThemeLabel");
+      const followThemeHint = document.getElementById("followThemeHint");
       if (tabBtnSettings)
         tabBtnSettings.textContent = i18next.t("deps.tabSettings");
       if (tabBtnDeps)
@@ -6570,6 +6637,30 @@ var require_ui = __commonJS({
         ytdlpDesc.textContent = i18next.t("deps.ytdlpDesc");
       if (ffmpegDesc)
         ffmpegDesc.textContent = i18next.t("deps.ffmpegDesc");
+      if (appearanceTitle)
+        appearanceTitle.textContent = i18next.t("deps.appearanceTitle");
+      if (themeLabel)
+        themeLabel.textContent = i18next.t("deps.themeLabel");
+      if (themeHint)
+        themeHint.textContent = i18next.t("deps.themeHint");
+      if (followThemeLabel)
+        followThemeLabel.textContent = i18next.t("deps.followThemeLabel");
+      if (followThemeHint)
+        followThemeHint.textContent = i18next.t("deps.followThemeHint");
+      const themeTitles = {
+        light: "themeLight",
+        lightgray: "themeLightgray",
+        gray: "themeGray",
+        dark: "themeDark",
+        blue: "themeBlue",
+        purple: "themePurple"
+      };
+      document.querySelectorAll(".theme-swatch").forEach((btn) => {
+        const key = themeTitles[btn.dataset.theme];
+        if (key)
+          btn.title = i18next.t(`deps.${key}`);
+      });
+      setupThemeControls();
       switchSubpageTab(gating ? "dependencies" : tab);
       (_a = document.getElementById("depsContainer")) == null ? void 0 : _a.classList.remove("hidden");
       (_b = document.getElementById("mainContainer")) == null ? void 0 : _b.classList.add("hidden");
@@ -6756,7 +6847,11 @@ var require_ui = __commonJS({
       renderTwitterProfile,
       updateDepsBadge,
       updateYtdlpCard,
-      updateFfmpegCard
+      updateFfmpegCard,
+      setupThemeControls,
+      getFollowEagleTheme,
+      setFollowEagleTheme,
+      setManualTheme
     };
   }
 });
@@ -6863,6 +6958,17 @@ var require_en = __commonJS({
         tabDependencies: "Dependencies",
         sectionPreferences: "Preferences",
         sectionEngines: "Core Engines",
+        appearanceTitle: "Appearance",
+        themeLabel: "Theme",
+        themeHint: "Pick a colour scheme, or enable the switch below to follow Eagle",
+        followThemeLabel: "Follow Eagle theme",
+        followThemeHint: "Use Eagle's current appearance; turn off to use the theme selected above",
+        themeLight: "Light",
+        themeLightgray: "Light gray",
+        themeGray: "Gray",
+        themeDark: "Dark",
+        themeBlue: "Deep blue",
+        themePurple: "Purple",
         autoAddSourceLabel: "Auto-set Eagle Data Source",
         autoAddSourceHint: "When enabled, original web URLs are automatically saved to Eagle items",
         xhsTagsLabel: "Xiaohongshu Tags",
@@ -7052,6 +7158,17 @@ var require_zh_CN = __commonJS({
         tabDependencies: "\u4F9D\u8D56\u7BA1\u7406",
         sectionPreferences: "\u504F\u597D\u8BBE\u7F6E",
         sectionEngines: "\u6838\u5FC3\u5F15\u64CE\u4F9D\u8D56",
+        appearanceTitle: "\u5916\u89C2",
+        themeLabel: "\u4E3B\u9898",
+        themeHint: "\u9009\u62E9\u754C\u9762\u914D\u8272\uFF0C\u6216\u5F00\u542F\u4E0B\u65B9\u5F00\u5173\u8DDF\u968F Eagle",
+        followThemeLabel: "\u8DDF\u968F Eagle \u4E3B\u9898",
+        followThemeHint: "\u5F00\u542F\u540E\u4F7F\u7528 Eagle \u5F53\u524D\u7684\u5916\u89C2\u4E3B\u9898\uFF0C\u5173\u95ED\u540E\u4F7F\u7528\u4E0A\u9762\u9009\u62E9\u7684\u4E3B\u9898",
+        themeLight: "\u6D45\u8272",
+        themeLightgray: "\u6D45\u7070",
+        themeGray: "\u7070\u8272",
+        themeDark: "\u6DF1\u8272",
+        themeBlue: "\u6DF1\u84DD",
+        themePurple: "\u7D2B\u8272",
         autoAddSourceLabel: "\u81EA\u52A8\u8BBE\u7F6E Eagle \u6570\u636E\u6765\u6E90",
         autoAddSourceHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u89C6\u9891\u65F6\u4F1A\u81EA\u52A8\u5728 Eagle \u4E2D\u8BB0\u5F55\u539F\u59CB\u7F51\u9875 URL",
         xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",

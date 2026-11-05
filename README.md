@@ -48,6 +48,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 
 ### 界面与交互
 
+- 界面：贴近 Eagle 的浅色面板风格；偏好设置「外观」可选 6 套主题，或开启「跟随 Eagle 主题」自动同步 Eagle 外观
 - 输入框剪贴板按钮：读取系统剪贴板，自动从「文字 + 链接」的混合内容中提取 https 链接，填入后自动点亮下载按钮
 - 窗口置顶：右上角图钉按钮，调用 `eagle.window.setAlwaysOnTop`，状态写入 localStorage 并在下次打开时恢复
 - 窗口可缩放：最小 360 × 420，缩放停止 300ms 后保存，关闭窗口时立即保存，下次打开恢复上次尺寸

@@ -30,10 +30,24 @@ function setIntervalChoice(minutes) {
 }
 
 /**
- * 更新 UI 主题
+ * 主题：跟随 Eagle 或手动选择
  */
-function updateTheme() {
-  const THEME_SUPPORT = {
+const THEME_FOLLOW_KEY = "eagle-video-downloader.followEagleTheme";
+const THEME_KEY = "eagle-video-downloader.theme";
+const THEME_NAMES = ["light", "lightgray", "gray", "dark", "blue", "purple"];
+
+function getFollowEagleTheme() {
+  const value = localStorage.getItem(THEME_FOLLOW_KEY);
+  return value === null ? true : value === "true";
+}
+
+function getManualTheme() {
+  const value = localStorage.getItem(THEME_KEY);
+  return THEME_NAMES.includes(value) ? value : "light";
+}
+
+function eagleThemeName() {
+  const support = {
     AUTO: eagle.app.isDarkColors() ? "gray" : "light",
     LIGHT: "light",
     LIGHTGRAY: "lightgray",
@@ -42,15 +56,73 @@ function updateTheme() {
     BLUE: "blue",
     PURPLE: "purple",
   };
+  try {
+    return support[String(eagle.app.theme).toUpperCase()] || "light";
+  } catch (e) {
+    return "light";
+  }
+}
 
-  const theme = eagle.app.theme.toUpperCase();
-  const themeName = THEME_SUPPORT[theme] ?? "dark";
+function currentThemeName() {
+  return getFollowEagleTheme() ? eagleThemeName() : getManualTheme();
+}
+
+function setFollowEagleTheme(value) {
+  localStorage.setItem(THEME_FOLLOW_KEY, String(!!value));
+  // 关闭跟随时，把 Eagle 当前主题记为手动主题，避免跳回默认值
+  if (!value) localStorage.setItem(THEME_KEY, eagleThemeName());
+  updateTheme();
+}
+
+function setManualTheme(name) {
+  if (!THEME_NAMES.includes(name)) return;
+  localStorage.setItem(THEME_KEY, name);
+  localStorage.setItem(THEME_FOLLOW_KEY, "false");
+  updateTheme();
+}
+
+function syncThemeControls(themeName) {
+  const follow = getFollowEagleTheme();
+  const toggle = document.getElementById("followThemeToggle");
+  if (toggle) toggle.checked = follow;
+  const active = themeName || currentThemeName();
+  document.querySelectorAll(".theme-swatch").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.theme === active);
+    btn.classList.toggle("disabled", follow);
+  });
+}
+
+let themeControlsBound = false;
+
+function setupThemeControls() {
+  syncThemeControls();
+  if (themeControlsBound) return;
+  themeControlsBound = true;
+  const toggle = document.getElementById("followThemeToggle");
+  if (toggle) {
+    toggle.addEventListener("change", () => setFollowEagleTheme(toggle.checked));
+  }
+  document.querySelectorAll(".theme-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => setManualTheme(btn.dataset.theme));
+  });
+}
+
+/**
+ * 应用当前主题（跟随 Eagle 或手动选择）
+ */
+function updateTheme() {
+  const themeName = currentThemeName();
   const htmlEl = document.querySelector("html");
 
   htmlEl.classList.add("no-transition");
   htmlEl.setAttribute("theme", themeName);
-  htmlEl.setAttribute("platform", eagle.app.platform);
+  try {
+    htmlEl.setAttribute("platform", eagle.app.platform);
+  } catch (e) {
+    // Eagle API 尚未就绪时忽略
+  }
   htmlEl.classList.remove("no-transition");
+  syncThemeControls(themeName);
 }
 
 /**
@@ -483,6 +555,11 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const notice = document.getElementById("depsNotice");
   const ytdlpDesc = document.getElementById("ytdlpDesc");
   const ffmpegDesc = document.getElementById("ffmpegDesc");
+  const appearanceTitle = document.getElementById("appearanceTitle");
+  const themeLabel = document.getElementById("themeLabel");
+  const themeHint = document.getElementById("themeHint");
+  const followThemeLabel = document.getElementById("followThemeLabel");
+  const followThemeHint = document.getElementById("followThemeHint");
 
   if (tabBtnSettings) tabBtnSettings.textContent = i18next.t("deps.tabSettings");
   if (tabBtnDeps) tabBtnDeps.textContent = i18next.t("deps.tabDependencies");
@@ -577,6 +654,26 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (notice) notice.textContent = i18next.t("deps.setupRequired");
   if (ytdlpDesc) ytdlpDesc.textContent = i18next.t("deps.ytdlpDesc");
   if (ffmpegDesc) ffmpegDesc.textContent = i18next.t("deps.ffmpegDesc");
+
+  // 外观：主题与跟随 Eagle 开关
+  if (appearanceTitle) appearanceTitle.textContent = i18next.t("deps.appearanceTitle");
+  if (themeLabel) themeLabel.textContent = i18next.t("deps.themeLabel");
+  if (themeHint) themeHint.textContent = i18next.t("deps.themeHint");
+  if (followThemeLabel) followThemeLabel.textContent = i18next.t("deps.followThemeLabel");
+  if (followThemeHint) followThemeHint.textContent = i18next.t("deps.followThemeHint");
+  const themeTitles = {
+    light: "themeLight",
+    lightgray: "themeLightgray",
+    gray: "themeGray",
+    dark: "themeDark",
+    blue: "themeBlue",
+    purple: "themePurple",
+  };
+  document.querySelectorAll(".theme-swatch").forEach((btn) => {
+    const key = themeTitles[btn.dataset.theme];
+    if (key) btn.title = i18next.t(`deps.${key}`);
+  });
+  setupThemeControls();
 
   switchSubpageTab(gating ? "dependencies" : tab);
 
@@ -791,4 +888,8 @@ module.exports = {
   updateDepsBadge,
   updateYtdlpCard,
   updateFfmpegCard,
+  setupThemeControls,
+  getFollowEagleTheme,
+  setFollowEagleTheme,
+  setManualTheme,
 };
