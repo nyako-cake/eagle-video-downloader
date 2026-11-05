@@ -458,8 +458,9 @@ function autoGrowTextarea(el) {
  * @param {'settings' | 'dependencies'} opts.tab - 初始标签页
  * @param {boolean} opts.gating - 是否为「门槛模式」（依赖未就绪，强制停留在此页，隐藏返回按钮）
  * @param {boolean} opts.autoAddSourcePref - 是否自动设置 Eagle 数据来源
+ * @param {boolean} opts.xhsTagsPref - 小红书下载是否写入话题标签
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnDeps = document.getElementById("tabBtnDeps");
@@ -467,6 +468,9 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const autoAddLabel = document.getElementById("autoAddSourceLabel");
   const autoAddHint = document.getElementById("autoAddSourceHint");
   const autoAddToggle = document.getElementById("autoAddSourceToggle");
+  const xhsTagsLabel = document.getElementById("xhsTagsLabel");
+  const xhsTagsHint = document.getElementById("xhsTagsHint");
+  const xhsTagsToggle = document.getElementById("xhsTagsToggle");
   const maxResLabel = document.getElementById("maxResolutionLabel");
   const maxResHint = document.getElementById("maxResolutionHint");
   const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -485,6 +489,9 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (autoAddLabel) autoAddLabel.textContent = i18next.t("deps.autoAddSourceLabel");
   if (autoAddHint) autoAddHint.textContent = i18next.t("deps.autoAddSourceHint");
   if (autoAddToggle) autoAddToggle.checked = autoAddSourcePref;
+  if (xhsTagsLabel) xhsTagsLabel.textContent = i18next.t("deps.xhsTagsLabel");
+  if (xhsTagsHint) xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
+  if (xhsTagsToggle) xhsTagsToggle.checked = xhsTagsPref !== false;
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");

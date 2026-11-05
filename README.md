@@ -21,7 +21,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 ### 站点与内容
 
 - Sankaku（sankaku.app / sankakucomplex.com）：投稿视频与图片下载，可在设置页填入 accessToken 以获取仅登录可见内容
-- 小红书（xiaohongshu.com）：笔记图片与视频下载，标题作为文件名、正文作为注释、话题作为标签；多图按标题编号，原图优先（HEIC 自动转 JPEG）
+- 小红书（xiaohongshu.com）：笔记图片与视频下载，标题作为文件名、正文作为注释、话题作为标签；多图按标题编号，原图优先（HEIC 自动转 JPEG）；标签可在偏好设置「小红书标签」中关闭
 - Twitter / X 图片：图片推文按原图尺寸保存，多图逐张下载，推文正文写入 Eagle 注释
 - 一条推文包含多个视频时逐个下载，不再只取第一个
 

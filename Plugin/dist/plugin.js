@@ -6423,7 +6423,7 @@ var require_ui = __commonJS({
       el.style.height = "auto";
       el.style.height = Math.max(38, el.scrollHeight) + "px";
     }
-    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
       const tabBtnDeps = document.getElementById("tabBtnDeps");
@@ -6431,6 +6431,9 @@ var require_ui = __commonJS({
       const autoAddLabel = document.getElementById("autoAddSourceLabel");
       const autoAddHint = document.getElementById("autoAddSourceHint");
       const autoAddToggle = document.getElementById("autoAddSourceToggle");
+      const xhsTagsLabel = document.getElementById("xhsTagsLabel");
+      const xhsTagsHint = document.getElementById("xhsTagsHint");
+      const xhsTagsToggle = document.getElementById("xhsTagsToggle");
       const maxResLabel = document.getElementById("maxResolutionLabel");
       const maxResHint = document.getElementById("maxResolutionHint");
       const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -6453,6 +6456,12 @@ var require_ui = __commonJS({
         autoAddHint.textContent = i18next.t("deps.autoAddSourceHint");
       if (autoAddToggle)
         autoAddToggle.checked = autoAddSourcePref;
+      if (xhsTagsLabel)
+        xhsTagsLabel.textContent = i18next.t("deps.xhsTagsLabel");
+      if (xhsTagsHint)
+        xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
+      if (xhsTagsToggle)
+        xhsTagsToggle.checked = xhsTagsPref !== false;
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -6856,6 +6865,8 @@ var require_en = __commonJS({
         sectionEngines: "Core Engines",
         autoAddSourceLabel: "Auto-set Eagle Data Source",
         autoAddSourceHint: "When enabled, original web URLs are automatically saved to Eagle items",
+        xhsTagsLabel: "Xiaohongshu Tags",
+        xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7043,6 +7054,8 @@ var require_zh_CN = __commonJS({
         sectionEngines: "\u6838\u5FC3\u5F15\u64CE\u4F9D\u8D56",
         autoAddSourceLabel: "\u81EA\u52A8\u8BBE\u7F6E Eagle \u6570\u636E\u6765\u6E90",
         autoAddSourceHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u89C6\u9891\u65F6\u4F1A\u81EA\u52A8\u5728 Eagle \u4E2D\u8BB0\u5F55\u539F\u59CB\u7F51\u9875 URL",
+        xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",
+        xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7144,15 +7157,23 @@ var twitterAuth = require_twitter_auth();
 var twitterMonitor = require_twitter_monitor();
 var ui = require_ui();
 var isInitialized = false;
+function buildImportTags(metadata) {
+  const adapterTags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag || "").trim().replace(/^#+/, "")).filter(Boolean) : [];
+  const isXiaohongshu = String(metadata.extractor || "").toLowerCase() === "xiaohongshu";
+  if (isXiaohongshu) {
+    return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
+  }
+  return adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
+}
 async function importToEagle(videoPath, metadata, sourceUrl) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next2.t("error.eagleApiNotAvailable"));
   }
-  const adapterTags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag || "").trim().replace(/^#+/, "")).filter(Boolean) : [];
+  const tags = buildImportTags(metadata);
   const importOptions = {
     name: metadata.title || i18next2.t("error.downloadedVideo"),
     website: sourceUrl || void 0,
-    tags: adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"],
+    tags,
     annotation: metadata.description ? metadata.description.slice(0, 5e3) : ""
   };
   try {
@@ -7171,6 +7192,14 @@ function getAutoAddSourcePref() {
 }
 function setAutoAddSourcePref(value) {
   localStorage.setItem(AUTO_ADD_SOURCE_KEY, String(value));
+}
+var XHS_TAGS_KEY = "eagle-video-downloader.xhsTags";
+function getXhsTagsPref() {
+  const val = localStorage.getItem(XHS_TAGS_KEY);
+  return val === null ? true : val === "true";
+}
+function setXhsTagsPref(value) {
+  localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 function getMaxResolutionPref() {
   return localStorage.getItem(MAX_RESOLUTION_KEY) || "auto";
@@ -7330,6 +7359,12 @@ function setupEventListeners() {
   if (autoAddToggle) {
     autoAddToggle.addEventListener("change", (e) => {
       setAutoAddSourcePref(e.target.checked);
+    });
+  }
+  const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+  if (xhsTagsToggle) {
+    xhsTagsToggle.addEventListener("change", (e) => {
+      setXhsTagsPref(e.target.checked);
     });
   }
   const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -7551,6 +7586,7 @@ async function initializeBinaries() {
     tab: "dependencies",
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
+    xhsTagsPref: getXhsTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()
@@ -7785,6 +7821,7 @@ function openDepsPage() {
   ui.showDepsPage({
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
+    xhsTagsPref: getXhsTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()
@@ -8167,4 +8204,4 @@ function setupPinButton() {
     apply(pinned);
   });
 }
-module.exports = {};
+module.exports = { buildImportTags };

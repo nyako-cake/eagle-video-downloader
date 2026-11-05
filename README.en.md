@@ -21,7 +21,7 @@ Main changes in this branch compared to upstream 3.0.0.
 ### Sites and content
 
 - Sankaku (sankaku.app / sankakucomplex.com): download post videos and images; an accessToken in settings unlocks login-only posts
-- Xiaohongshu (xiaohongshu.com): download note images and videos; the note title becomes the filename, the body becomes the Eagle annotation and the topics become Eagle tags; multiple images are numbered and originals are preferred (HEIC is converted to JPEG)
+- Xiaohongshu (xiaohongshu.com): download note images and videos; the note title becomes the filename, the body becomes the Eagle annotation and the topics become Eagle tags; multiple images are numbered and originals are preferred (HEIC is converted to JPEG); tags can be turned off with the "Xiaohongshu Tags" preference
 - Twitter / X images: photo tweets are saved at original size, every image is downloaded, and the tweet text becomes the Eagle annotation
 - Tweets with several videos now download every video instead of only the first one
 

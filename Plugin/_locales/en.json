@@ -99,6 +99,8 @@
     "sectionEngines": "Core Engines",
     "autoAddSourceLabel": "Auto-set Eagle Data Source",
     "autoAddSourceHint": "When enabled, original web URLs are automatically saved to Eagle items",
+    "xhsTagsLabel": "Xiaohongshu Tags",
+    "xhsTagsHint": "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
     "maxResolutionLabel": "Max Resolution",
     "maxResolutionHint": "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
     "maxFramerateLabel": "Max Frame Rate",

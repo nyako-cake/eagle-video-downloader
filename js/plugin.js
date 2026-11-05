@@ -23,20 +23,34 @@ const ui = require("./ui");
 // 状态管理
 let isInitialized = false;
 
-async function importToEagle(videoPath, metadata, sourceUrl) {
-  if (typeof eagle === "undefined") {
-    throw new Error(i18next.t("error.eagleApiNotAvailable"));
-  }
-  // 站点适配器可以给出更准确的标签（如小红书话题），否则退回站点名
+/**
+ * 计算导入 Eagle 时使用的标签：
+ * 小红书按偏好决定是否写入话题标签，其他站点优先用适配器标签，否则写站点名。
+ */
+function buildImportTags(metadata) {
+  // 站点适配器可以给出更准确的标签（如小红书话题）
   const adapterTags = Array.isArray(metadata.tags)
     ? metadata.tags
       .map((tag) => String(tag || "").trim().replace(/^#+/, ""))
       .filter(Boolean)
     : [];
+  const isXiaohongshu = String(metadata.extractor || "").toLowerCase() === "xiaohongshu";
+  if (isXiaohongshu) {
+    // 偏好设置里关闭后，小红书笔记不写任何标签
+    return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
+  }
+  return adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
+}
+
+async function importToEagle(videoPath, metadata, sourceUrl) {
+  if (typeof eagle === "undefined") {
+    throw new Error(i18next.t("error.eagleApiNotAvailable"));
+  }
+  const tags = buildImportTags(metadata);
   const importOptions = {
     name: metadata.title || i18next.t("error.downloadedVideo"),
     website: sourceUrl || undefined,
-    tags: adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"],
+    tags,
     annotation: metadata.description ? metadata.description.slice(0, 5000) : "",
   };
   try {
@@ -66,6 +80,24 @@ function getAutoAddSourcePref() {
  */
 function setAutoAddSourcePref(value) {
   localStorage.setItem(AUTO_ADD_SOURCE_KEY, String(value));
+}
+
+// 小红书下载是否写入话题标签
+const XHS_TAGS_KEY = "eagle-video-downloader.xhsTags";
+
+/**
+ * 获取是否把小红书话题写入 Eagle 标签（默认开启）
+ */
+function getXhsTagsPref() {
+  const val = localStorage.getItem(XHS_TAGS_KEY);
+  return val === null ? true : val === "true";
+}
+
+/**
+ * 保存是否写入小红书标签
+ */
+function setXhsTagsPref(value) {
+  localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 
 /**
@@ -278,6 +310,14 @@ function setupEventListeners() {
   if (autoAddToggle) {
     autoAddToggle.addEventListener("change", (e) => {
       setAutoAddSourcePref(e.target.checked);
+    });
+  }
+
+  // 小红书标签开关
+  const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+  if (xhsTagsToggle) {
+    xhsTagsToggle.addEventListener("change", (e) => {
+      setXhsTagsPref(e.target.checked);
     });
   }
 
@@ -524,6 +564,7 @@ async function initializeBinaries() {
     tab: "dependencies",
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
+    xhsTagsPref: getXhsTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -810,6 +851,7 @@ function openDepsPage() {
   ui.showDepsPage({
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
+    xhsTagsPref: getXhsTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1243,5 +1285,6 @@ function setupPinButton() {
   });
 }
 
-module.exports = {};
+// 供测试使用；Electron 运行时不会用到
+module.exports = { buildImportTags };
 
