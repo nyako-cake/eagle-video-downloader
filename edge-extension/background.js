@@ -21,7 +21,21 @@ function looksLikeDirectMedia(url) {
   if (typeof url !== "string") return false;
   if (/^https:\/\/video\.twimg\.com\/.+/i.test(url)) return true;
   if (/^https:\/\/pbs\.twimg\.com\/.+/i.test(url)) return true;
+  if (/^https:\/\/sns-[a-z0-9-]+\.xhscdn\.com\/.+/i.test(url)) return true;
   return /^https:\/\/(?:[a-z0-9-]+\.)*sankakucomplex\.com\/.+/i.test(url);
+}
+
+/** 允许推送 / 局域网转发的页面链接 */
+const SUPPORTED_PAGE_RES = [
+  /^https:\/\/(x|twitter|mobile\.twitter)\.com\//i,
+  /^https:\/\/(?:[a-z0-9-]+\.)*sankaku(?:complex)?\.(?:app|com)\//i,
+  /^https:\/\/(?:www\.)?xiaohongshu\.com\/(?:explore|discovery\/item|note)\//i,
+  /^https:\/\/xhslink\.com\//i,
+];
+
+function isSupportedPageUrl(url) {
+  if (typeof url !== "string") return false;
+  return SUPPORTED_PAGE_RES.some((re) => re.test(url));
 }
 
 async function pushToPlugin(payload) {
@@ -150,9 +164,7 @@ async function getLanPeers() {
 /** 只把链接发送到局域网设备，不在本机下载 */
 async function sendToLan(url, ip) {
   if (!ip || !isPrivateIp(ip)) return { ok: false, error: "无效的局域网地址" };
-  const isTweetUrl = /^https:\/\/(x|twitter|mobile\.twitter)\.com\//i.test(url);
-  const isSankakuUrl = /^https:\/\/(?:[a-z0-9-]+\.)*sankaku(?:complex)?\.(?:app|com)\//i.test(url);
-  if (!isTweetUrl && !isSankakuUrl) return { ok: false, error: "不支持的页面链接" };
+  if (!isSupportedPageUrl(url)) return { ok: false, error: "不支持的页面链接" };
 
   try {
     const response = await fetchWithTimeout(
@@ -176,9 +188,7 @@ async function sendToLan(url, ip) {
 async function ingest(message) {
   const url = typeof message.url === "string" ? message.url.trim() : "";
   const mediaUrl = typeof message.mediaUrl === "string" ? message.mediaUrl.trim() : "";
-  const isTweetUrl = /^https:\/\/(x|twitter|mobile\.twitter)\.com\//i.test(url);
-  const isSankakuUrl = /^https:\/\/(?:[a-z0-9-]+\.)*sankaku(?:complex)?\.(?:app|com)\//i.test(url);
-  if (!isTweetUrl && !isSankakuUrl) {
+  if (!isSupportedPageUrl(url)) {
     return { ok: false, error: "不支持的页面链接" };
   }
 

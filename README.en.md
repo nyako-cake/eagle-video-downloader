@@ -8,19 +8,20 @@ Download videos directly to Eagle from sites supported by yt-dlp. Built on [yt-d
 
 ## Supported Platforms
 
-YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, Sankaku, and [many more](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, Sankaku, Xiaohongshu, and [many more](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ## Features
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.5.1)
+## What's New (3.2.0 - 3.6.0)
 
 Main changes in this branch compared to upstream 3.0.0.
 
 ### Sites and content
 
 - Sankaku (sankaku.app / sankakucomplex.com): download post videos and images; an accessToken in settings unlocks login-only posts
+- Xiaohongshu (xiaohongshu.com): download note images and videos; the note title becomes the filename, the body becomes the Eagle annotation and the topics become Eagle tags; multiple images are numbered and originals are preferred (HEIC is converted to JPEG)
 - Twitter / X images: photo tweets are saved at original size, every image is downloaded, and the tweet text becomes the Eagle annotation
 - Tweets with several videos now download every video instead of only the first one
 
@@ -57,7 +58,7 @@ Main changes in this branch compared to upstream 3.0.0.
 
 - The plugin exposes `GET /ping`, `GET /peers` and `POST /ingest` on `0.0.0.0:43110`, reachable from the local extension and LAN devices
 - `/peers` scans the local subnet and returns machines running this plugin
-- Only https urls on x.com / twitter.com / video.twimg.com / pbs.twimg.com / sankaku are accepted, request body is capped at 16 KB
+- Only https urls on x.com / twitter.com / video.twimg.com / pbs.twimg.com / sankaku / xiaohongshu are accepted, request body is capped at 16 KB
 - Returns 503 when dependencies are not ready; accepted links are queued and the plugin window is brought to front
 
 ## Browser Extension (Edge / Chromium)
@@ -71,6 +72,7 @@ Features:
 - X / Twitter: a "Save to Eagle" button and a "Share to LAN device" button in every tweet action bar; the tweet share menu also offers "Share to LAN device"
 - Liking or bookmarking a post pushes its link automatically, with separate switches in the popup
 - Sankaku: a floating button in the bottom-right corner of the page
+- Xiaohongshu: a floating button on note pages that saves the current note (title as filename, body and topics into Eagle); the link must include xsec_token
 - Popup "LAN devices": scan and remember machines on the same subnet and send the current page link (link only, no local download)
 - When the plugin is closed, the extension tries to wake it through Eagle's local API before pushing
 - If the plugin stays unavailable, direct media urls fall back to Eagle's local API at `127.0.0.1:41595`
@@ -87,7 +89,7 @@ On first launch, install yt-dlp (~30MB) from the dependency management page. ffm
 
 1. Copy a page link
 2. Paste it into the plugin input box (the paste button starts the download automatically)
-3. Or use the save button, like or bookmark on X / Twitter and let the extension push the link
+3. Or use the save button, like or bookmark on X / Twitter and let the extension push the link; on Xiaohongshu, use the floating button on a note page
 4. The video is automatically imported to Eagle after download
 
 ## Troubleshooting
@@ -97,6 +99,7 @@ On first launch, install yt-dlp (~30MB) from the dependency management page. ffm
 - The extension says "Please open the Eagle plugin": the plugin window is closed or dependencies are not ready; open the plugin and retry
 - NSFW / age-restricted tweets fail: keep the plugin window open so it can resolve the direct media url
 - Merge percentage jumps: merge progress is estimated from the output file size, small files may jump straight from 0% to 100%
+- Xiaohongshu says "This note cannot be read": the link must include `xsec_token`. Copy the full link from the app share menu or the browser address bar (for example `.../explore/<id>?xsec_token=...`); a bare note id cannot be read anonymously
 
 ## Development
 

@@ -4057,6 +4057,395 @@ var require_sankaku = __commonJS({
   }
 });
 
+// js/sites/xiaohongshu.js
+var require_xiaohongshu = __commonJS({
+  "js/sites/xiaohongshu.js"(exports2, module2) {
+    var { validateUrl, assertHostAllowed, secureHttpsGet } = require_net_guard();
+    var i18next3 = require_i18next();
+    var PLATFORM_DOMAINS = ["xiaohongshu.com", "xhslink.com"];
+    var NOTE_HOST_DOMAINS = ["xiaohongshu.com"];
+    var SHORT_LINK_DOMAINS = ["xhslink.com"];
+    var ALLOWED_MEDIA_DOMAINS = ["xhscdn.com"];
+    var USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    var NOTE_PATH_RE = /^\/(?:explore|discovery\/item|note)\/([0-9a-f]{24})\/?$/i;
+    var IMAGE_ORIGIN = "https://sns-img-bd.xhscdn.com/";
+    var HTML_LIMIT = 4 * 1024 * 1024;
+    var REQUEST_TIMEOUT = 25e3;
+    var WARM_TTL = 10 * 60 * 1e3;
+    var MAX_TAGS = 30;
+    function tr(key, fallback) {
+      try {
+        const value = i18next3.t(key);
+        return value && value !== key ? value : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    function hostOf(url) {
+      try {
+        return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+      } catch (e) {
+        return "";
+      }
+    }
+    function isHostIn(url, domains) {
+      const host = hostOf(url);
+      if (!host)
+        return false;
+      return domains.some((domain) => host === domain || host.endsWith("." + domain));
+    }
+    function match(url) {
+      return isHostIn(url, PLATFORM_DOMAINS);
+    }
+    function isShortLink(url) {
+      return isHostIn(url, SHORT_LINK_DOMAINS);
+    }
+    function getNoteId(url) {
+      try {
+        const parsed = url instanceof URL ? url : new URL(url);
+        const matched = parsed.pathname.match(NOTE_PATH_RE);
+        return matched ? matched[1].toLowerCase() : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    function normalizeUrl(url) {
+      try {
+        const parsed = new URL(url);
+        if (!getNoteId(parsed))
+          return url;
+        const kept = new URLSearchParams();
+        for (const key of ["xsec_token", "xsec_source"]) {
+          const value = parsed.searchParams.get(key);
+          if (value)
+            kept.set(key, value);
+        }
+        parsed.hash = "";
+        parsed.search = kept.toString();
+        return parsed.toString();
+      } catch (e) {
+        return url;
+      }
+    }
+    function getSiteArgs() {
+      return [
+        "--referer",
+        "https://www.xiaohongshu.com/",
+        "--add-header",
+        `User-Agent:${USER_AGENT}`
+      ];
+    }
+    var cookieJar = /* @__PURE__ */ new Map();
+    var warmedAt = 0;
+    var warmPromise = null;
+    function storeCookies(res) {
+      const list = res && res.headers && res.headers["set-cookie"];
+      if (!Array.isArray(list))
+        return;
+      for (const line of list) {
+        const pair = String(line).split(";")[0];
+        const index = pair.indexOf("=");
+        if (index > 0)
+          cookieJar.set(pair.slice(0, index).trim(), pair.slice(index + 1).trim());
+      }
+    }
+    function cookieHeader() {
+      if (!cookieJar.size)
+        return "";
+      return [...cookieJar.entries()].map(([key, value]) => `${key}=${value}`).join("; ");
+    }
+    function buildHeaders(url, extra) {
+      const headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        ...extra || {}
+      };
+      if (isHostIn(url, NOTE_HOST_DOMAINS)) {
+        const cookie = cookieHeader();
+        if (cookie)
+          headers.Cookie = cookie;
+      }
+      return headers;
+    }
+    function request(url, redirectsLeft = 5) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn, value) => {
+          if (settled)
+            return;
+          settled = true;
+          fn(value);
+        };
+        (async () => {
+          let req;
+          try {
+            req = await secureHttpsGet(url, { headers: buildHeaders(url) }, (res) => {
+              storeCookies(res);
+              const status = res.statusCode;
+              if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
+                res.resume();
+                if (redirectsLeft <= 0) {
+                  finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note")));
+                  return;
+                }
+                let nextUrl;
+                try {
+                  nextUrl = new URL(res.headers.location, url).toString();
+                } catch (e) {
+                  finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note")));
+                  return;
+                }
+                request(nextUrl, redirectsLeft - 1).then(
+                  (value) => finish(resolve, value),
+                  (error) => finish(reject, error)
+                );
+                return;
+              }
+              let body = "";
+              res.setEncoding("utf8");
+              res.on("data", (chunk) => {
+                body += chunk;
+                if (body.length > HTML_LIMIT) {
+                  res.destroy();
+                  finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note")));
+                }
+              });
+              res.on("end", () => finish(resolve, { statusCode: status, body, finalUrl: url, headers: res.headers }));
+              res.on("error", () => finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note"))));
+            });
+            req.on("error", () => finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note"))));
+            req.setTimeout(REQUEST_TIMEOUT, () => {
+              req.destroy();
+              finish(reject, new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note")));
+            });
+          } catch (error) {
+            finish(reject, error);
+          }
+        })();
+      });
+    }
+    async function warmUp() {
+      if (cookieJar.size && Date.now() - warmedAt < WARM_TTL)
+        return;
+      if (warmPromise)
+        return warmPromise;
+      warmPromise = (async () => {
+        try {
+          await request("https://www.xiaohongshu.com/explore");
+          warmedAt = Date.now();
+        } catch (e) {
+        } finally {
+          warmPromise = null;
+        }
+      })();
+      return warmPromise;
+    }
+    function extractState(html) {
+      if (typeof html !== "string")
+        return null;
+      const matched = html.match(/window\.__INITIAL_STATE__\s*=\s*([\s\S]*?)<\/script>/);
+      if (!matched)
+        return null;
+      const source = matched[1].replace(/([:[,]\s*)undefined(?=\s*[,}\]])/g, "$1null");
+      try {
+        return JSON.parse(source);
+      } catch (e) {
+        return null;
+      }
+    }
+    function pickNote(state, noteId) {
+      const map = state && state.note && state.note.noteDetailMap;
+      if (!map || typeof map !== "object")
+        return null;
+      const entry = map[noteId] || map[Object.keys(map)[0]];
+      if (!entry || !entry.note || typeof entry.note !== "object")
+        return null;
+      return entry.note;
+    }
+    function firstLine(text, maxLength) {
+      const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+      if (!cleaned)
+        return "";
+      const cut = cleaned.split(/[。！？!?\n]/)[0].trim();
+      return (cut || cleaned).slice(0, maxLength);
+    }
+    function buildTitle(note, noteId) {
+      const title = String(note.title || "").replace(/\s+/g, " ").trim();
+      if (title)
+        return title.slice(0, 120);
+      const fromDesc = firstLine(note.desc, 60);
+      return fromDesc || `\u5C0F\u7EA2\u4E66 ${noteId}`;
+    }
+    function buildTags(note) {
+      const list = Array.isArray(note.tagList) ? note.tagList : [];
+      const seen = /* @__PURE__ */ new Set();
+      const tags = [];
+      for (const tag of list) {
+        const name = String(tag && tag.name || "").trim().replace(/^#+/, "");
+        if (!name || seen.has(name))
+          continue;
+        seen.add(name);
+        tags.push(name);
+        if (tags.length >= MAX_TAGS)
+          break;
+      }
+      return tags;
+    }
+    function buildDescription(note) {
+      return String(note.desc || "").slice(0, 4e3);
+    }
+    function mediaUrl(value) {
+      if (typeof value !== "string" || !value.trim())
+        return null;
+      const upgraded = value.trim().replace(/^http:\/\//i, "https://");
+      try {
+        assertHostAllowed(upgraded, ALLOWED_MEDIA_DOMAINS);
+        return upgraded;
+      } catch (e) {
+        return null;
+      }
+    }
+    function pickImages(note) {
+      const list = Array.isArray(note.imageList) ? note.imageList : [];
+      const items = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const image of list) {
+        if (!image)
+          continue;
+        const fileId = typeof image.fileId === "string" ? image.fileId.trim() : "";
+        const original = fileId ? mediaUrl(IMAGE_ORIGIN + fileId) : null;
+        const fallback = mediaUrl(image.urlDefault) || mediaUrl(image.url);
+        if (!original && !fallback)
+          continue;
+        if (original && seen.has(original))
+          continue;
+        if (original)
+          seen.add(original);
+        const converted = original ? mediaUrl(`${original}?imageView2/2/w/0/format/jpg`) : null;
+        const fallbacks = [];
+        for (const candidate of [converted, fallback]) {
+          if (candidate && candidate !== original && !fallbacks.includes(candidate))
+            fallbacks.push(candidate);
+        }
+        const item = original ? { url: original, fallbacks } : { url: fallback, fallbacks: [] };
+        items.push(item);
+      }
+      return items;
+    }
+    function pickVideo(note) {
+      const stream = note && note.video && note.video.media && note.video.media.stream;
+      if (!stream || typeof stream !== "object")
+        return null;
+      const candidates = [];
+      for (const codec of ["h264", "h265", "av1", "h266"]) {
+        const list = Array.isArray(stream[codec]) ? stream[codec] : [];
+        for (const item of list) {
+          if (item && typeof item === "object")
+            candidates.push(item);
+        }
+      }
+      if (!candidates.length)
+        return null;
+      const score = (item) => {
+        const size = Number(item.size) || 0;
+        return size * (String(item.videoCodec || "").toLowerCase() === "h264" ? 1.2 : 1);
+      };
+      candidates.sort((a, b) => score(b) - score(a));
+      for (const candidate of candidates) {
+        const backups = Array.isArray(candidate.backupUrls) ? candidate.backupUrls : [];
+        for (const raw of [candidate.masterUrl, ...backups]) {
+          const url = mediaUrl(raw);
+          if (!url)
+            continue;
+          const durationMs = Number(candidate.videoDuration) || 0;
+          const duration = durationMs > 0 ? Math.round(durationMs / 1e3) : Number(note.video && note.video.capa && note.video.capa.duration) || 0;
+          return {
+            url,
+            duration,
+            width: Number(candidate.width) || 0,
+            height: Number(candidate.height) || 0
+          };
+        }
+      }
+      return null;
+    }
+    async function customGetInfo(url) {
+      await warmUp();
+      let noteUrl = url;
+      if (isShortLink(url)) {
+        const initial = await request(url);
+        noteUrl = initial.finalUrl;
+      }
+      if (!isHostIn(noteUrl, NOTE_HOST_DOMAINS)) {
+        throw new Error(tr("error.xhsUnsupported", "Only Xiaohongshu note links are supported"));
+      }
+      const noteId = getNoteId(noteUrl);
+      if (!noteId) {
+        throw new Error(tr("error.xhsUnsupported", "Only Xiaohongshu note links are supported"));
+      }
+      await validateUrl(noteUrl);
+      const response = await request(noteUrl);
+      if (response.statusCode === 404) {
+        throw new Error(tr("error.xhsNoteUnavailable", "This Xiaohongshu note cannot be read"));
+      }
+      if (response.statusCode !== 200) {
+        throw new Error(tr("error.xhsExtractFailed", "Failed to read this Xiaohongshu note"));
+      }
+      const state = extractState(response.body);
+      const note = pickNote(state, noteId);
+      if (!note) {
+        throw new Error(tr("error.xhsNoteUnavailable", "This Xiaohongshu note cannot be read"));
+      }
+      const title = buildTitle(note, noteId);
+      const description = buildDescription(note);
+      const tags = buildTags(note);
+      const nickname = note.user && (note.user.nickname || note.user.nickName) || "Xiaohongshu";
+      const base = {
+        title,
+        description,
+        tags,
+        extractor: "xiaohongshu",
+        uploader: String(nickname),
+        id: noteId,
+        webpage_url: noteUrl,
+        thumbnail: mediaUrl(note.imageList && note.imageList[0] && note.imageList[0].urlDefault) || null
+      };
+      const video = pickVideo(note);
+      if (video && video.url) {
+        return {
+          ...base,
+          duration: video.duration || 0,
+          webpage_url: video.url,
+          useTitleAsFilename: true
+        };
+      }
+      if (String(note.type || "").toLowerCase() === "video") {
+        throw new Error(tr("error.xhsNoMedia", "No downloadable image or video found in this note"));
+      }
+      const images = pickImages(note);
+      if (images.length) {
+        return {
+          ...base,
+          type: "image",
+          imageUrl: images[0].url,
+          images,
+          // 图片 CDN 直连即可，跳过 yt-dlp 尝试，避免每张图多一次无效子进程
+          imageDirect: true
+        };
+      }
+      throw new Error(tr("error.xhsNoMedia", "No downloadable image or video found in this note"));
+    }
+    module2.exports = {
+      match,
+      normalizeUrl,
+      getSiteArgs,
+      getNoteId,
+      customGetInfo
+    };
+  }
+});
+
 // js/sites/index.js
 var require_sites = __commonJS({
   "js/sites/index.js"(exports2, module2) {
@@ -4067,6 +4456,7 @@ var require_sites = __commonJS({
     var pinterest = require_pinterest();
     var dribbble = require_dribbble();
     var sankaku = require_sankaku();
+    var xiaohongshu = require_xiaohongshu();
     var adapters = [
       bilibili,
       twitter,
@@ -4074,7 +4464,8 @@ var require_sites = __commonJS({
       instagram,
       pinterest,
       dribbble,
-      sankaku
+      sankaku,
+      xiaohongshu
     ];
     function findAdapter(url) {
       if (!url || typeof url !== "string")
@@ -4439,6 +4830,34 @@ var require_downloader = __commonJS({
       }
       return str.replace(/[<>:"/\\|?*]/g, "_").replace(/\s+/g, " ").trim().slice(0, 200) || "Untitled Video";
     }
+    function detectImageExtension(filePath) {
+      try {
+        const fd = fs.openSync(filePath, "r");
+        const buffer = Buffer.alloc(16);
+        const read = fs.readSync(fd, buffer, 0, 16, 0);
+        fs.closeSync(fd);
+        if (read < 12)
+          return null;
+        if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255)
+          return ".jpg";
+        if (buffer[0] === 137 && buffer.toString("ascii", 1, 4) === "PNG")
+          return ".png";
+        if (buffer.toString("ascii", 0, 3) === "GIF")
+          return ".gif";
+        if (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP")
+          return ".webp";
+        if (buffer.toString("ascii", 4, 8) === "ftyp") {
+          const brand = buffer.toString("ascii", 8, 12).toLowerCase();
+          if (["heic", "heix", "hevc", "hevx", "mif1", "msf1", "heif"].includes(brand))
+            return ".heic";
+          if (brand === "avif" || brand === "avis")
+            return ".avif";
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
     function getTempDir() {
       const tempDir = path.join(os.tmpdir(), "eagle-video-downloader");
       if (!fs.existsSync(tempDir)) {
@@ -4471,26 +4890,75 @@ var require_downloader = __commonJS({
       if (images.length) {
         const outputDir2 = getTempDir();
         const sanitizedTitle2 = sanitizeFilename(videoInfo.title);
+        const imageDirect = videoInfo.imageDirect === true;
         if (onStatus)
           onStatus(i18next3.t("ui.downloading"));
         const results = [];
         for (let index = 0; index < images.length; index++) {
-          const imageUrl = images[index];
+          const entry = images[index];
+          const imageUrl = typeof entry === "string" ? entry : entry && entry.url;
+          if (typeof imageUrl !== "string" || !/^https:\/\//i.test(imageUrl)) {
+            throw new Error(i18next3.t("error.invalidUrl"));
+          }
           await validateUrl(imageUrl);
+          const fallbacks = entry && typeof entry === "object" && Array.isArray(entry.fallbacks) ? entry.fallbacks.filter((item) => typeof item === "string" && /^https:\/\//i.test(item)) : [];
           const urlPath = new URL(imageUrl).pathname;
           const ext = path.extname(urlPath) || ".jpg";
           const suffix = images.length > 1 ? "_" + (index + 1) : "";
           const filename = sanitizedTitle2 + suffix + ext;
           const outputPath = path.join(outputDir2, filename);
           const imageProgress = images.length > 1 ? void 0 : onProgress;
-          try {
-            await execYtDlp([imageUrl, "-o", outputPath, "--no-warnings"], imageProgress, null, false);
-            if (!fs.existsSync(outputPath))
-              throw new Error("image not written");
-          } catch (e) {
-            await downloadFile(imageUrl, outputPath, imageProgress);
+          let lastError = null;
+          let downloaded = false;
+          const candidates = [imageUrl, ...fallbacks];
+          for (let candidateIndex = 0; candidateIndex < candidates.length && !downloaded; candidateIndex++) {
+            const candidate = candidates[candidateIndex];
+            try {
+              if (fs.existsSync(outputPath))
+                fs.unlinkSync(outputPath);
+            } catch (e) {
+            }
+            try {
+              await validateUrl(candidate);
+              if (candidateIndex === 0 && !imageDirect) {
+                try {
+                  await execYtDlp([candidate, "-o", outputPath, "--no-warnings"], imageProgress, null, false);
+                } catch (e) {
+                }
+              }
+              if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
+                await downloadFile(candidate, outputPath, imageProgress);
+              }
+              downloaded = fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0;
+              if (!downloaded)
+                throw new Error("image not written");
+            } catch (e) {
+              lastError = e;
+              downloaded = false;
+            }
+            const detected2 = downloaded ? detectImageExtension(outputPath) : null;
+            if (detected2 === ".heic" && candidateIndex < candidates.length - 1) {
+              try {
+                fs.unlinkSync(outputPath);
+              } catch (e) {
+              }
+              downloaded = false;
+            }
           }
-          results.push({ path: outputPath, metadata: videoInfo, filename });
+          if (!downloaded) {
+            throw lastError || new Error(i18next3.t("error.fileNotFound"));
+          }
+          let finalPath = outputPath;
+          const detected = detectImageExtension(outputPath);
+          if (detected && detected !== ext) {
+            finalPath = outputPath.slice(0, outputPath.length - ext.length) + detected;
+            try {
+              fs.renameSync(outputPath, finalPath);
+            } catch (e) {
+              finalPath = outputPath;
+            }
+          }
+          results.push({ path: finalPath, metadata: videoInfo, filename: path.basename(finalPath) });
         }
         return results;
       }
@@ -4515,7 +4983,11 @@ var require_downloader = __commonJS({
       }
       const outputDir = getTempDir();
       const sanitizedTitle = sanitizeFilename(videoInfo.title);
-      const outputTemplate = path.join(outputDir, `${sanitizedTitle}_%(autonumber)s.%(ext)s`);
+      const titleOnly = videoInfo && videoInfo.useTitleAsFilename === true;
+      const outputTemplate = path.join(
+        outputDir,
+        titleOnly ? `${sanitizedTitle}.%(ext)s` : `${sanitizedTitle}_%(autonumber)s.%(ext)s`
+      );
       let targetUrl = videoInfo && typeof videoInfo.webpage_url === "string" && videoInfo.webpage_url.startsWith("https") ? videoInfo.webpage_url : url;
       targetUrl = siteAdapters.normalizeUrl(targetUrl);
       await validateUrl(targetUrl);
@@ -6361,7 +6833,11 @@ var require_en = __commonJS({
         privateVideo: "This video is private or requires sign-in",
         unknown: "Unknown",
         sankakuLoginOrDeleted: "Sankaku post not found for anonymous requests; it may require login or be deleted. Add your account cookie in Settings -> Sankaku Account.",
-        sankakuAuthExpired: "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account."
+        sankakuAuthExpired: "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account.",
+        xhsExtractFailed: "Failed to read this Xiaohongshu note, please check your network and try again",
+        xhsNoteUnavailable: "This Xiaohongshu note cannot be read: the link must include xsec_token (copy the full link from the app share menu or the browser address bar). The note may also be deleted or login-only.",
+        xhsUnsupported: "Only Xiaohongshu note links are supported (/explore/ or /discovery/item/)",
+        xhsNoMedia: "No downloadable image or video found in this Xiaohongshu note"
       },
       progress: {
         remaining: "Remaining"
@@ -6544,7 +7020,11 @@ var require_zh_CN = __commonJS({
         privateVideo: "\u79C1\u5BC6\u89C6\u9891\u6216\u9700\u8981\u767B\u5F55\u8BBF\u95EE",
         unknown: "\u672A\u77E5",
         sankakuLoginOrDeleted: "\u672A\u627E\u5230\u8BE5\u6295\u7A3F\uFF0C\u53EF\u80FD\u9700\u8981\u767B\u5F55\u540E\u624D\u80FD\u67E5\u770B\uFF0C\u6216\u6295\u7A3F\u5DF2\u5220\u9664\u3002\u53EF\u5728\u300C\u8BBE\u7F6E \u2192 Sankaku \u8D26\u53F7\u300D\u4E2D\u586B\u5199 Cookie \u540E\u91CD\u8BD5\u3002",
-        sankakuAuthExpired: "Sankaku \u767B\u5F55\u5DF2\u5931\u6548\uFF0C\u8BF7\u5728\u300C\u8BBE\u7F6E \u2192 Sankaku \u8D26\u53F7\u300D\u4E2D\u66F4\u65B0 Cookie\u3002"
+        sankakuAuthExpired: "Sankaku \u767B\u5F55\u5DF2\u5931\u6548\uFF0C\u8BF7\u5728\u300C\u8BBE\u7F6E \u2192 Sankaku \u8D26\u53F7\u300D\u4E2D\u66F4\u65B0 Cookie\u3002",
+        xhsExtractFailed: "\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u89E3\u6790\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5",
+        xhsNoteUnavailable: "\u65E0\u6CD5\u8BFB\u53D6\u8BE5\u5C0F\u7EA2\u4E66\u7B14\u8BB0\uFF1A\u94FE\u63A5\u9700\u5E26 xsec_token\uFF08\u8BF7\u4ECE App \u5206\u4EAB\u83DC\u5355\u6216\u6D4F\u89C8\u5668\u5730\u5740\u680F\u590D\u5236\u5B8C\u6574\u94FE\u63A5\uFF09\uFF0C\u4E5F\u53EF\u80FD\u7B14\u8BB0\u5DF2\u5220\u9664\u6216\u4EC5\u767B\u5F55\u53EF\u89C1",
+        xhsUnsupported: "\u4EC5\u652F\u6301\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u94FE\u63A5\uFF08/explore/ \u6216 /discovery/item/\uFF09",
+        xhsNoMedia: "\u672A\u5728\u8BE5\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u4E2D\u627E\u5230\u53EF\u4E0B\u8F7D\u7684\u56FE\u7247\u6216\u89C6\u9891"
       },
       progress: {
         remaining: "\u5269\u4F59"
@@ -6668,11 +7148,12 @@ async function importToEagle(videoPath, metadata, sourceUrl) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next2.t("error.eagleApiNotAvailable"));
   }
+  const adapterTags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag || "").trim().replace(/^#+/, "")).filter(Boolean) : [];
   const importOptions = {
     name: metadata.title || i18next2.t("error.downloadedVideo"),
     website: sourceUrl || void 0,
-    tags: [metadata.extractor || "video"],
-    annotation: metadata.description ? metadata.description.slice(0, 500) : ""
+    tags: adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"],
+    annotation: metadata.description ? metadata.description.slice(0, 5e3) : ""
   };
   try {
     return await eagle.item.addFromPath(videoPath, importOptions);
@@ -7118,6 +7599,9 @@ function downloadKey(url) {
   const sankaku = text.match(/\/(?:posts?|post\/show)\/([A-Za-z0-9]+)/i);
   if (sankaku)
     return "sk:" + sankaku[1];
+  const xiaohongshu = text.match(/xiaohongshu\.com\/(?:explore|discovery\/item|note)\/([0-9a-f]{24})/i);
+  if (xiaohongshu)
+    return "xhs:" + xiaohongshu[1].toLowerCase();
   return "url:" + text.split("#")[0];
 }
 function loadRecentDownloads() {
@@ -7450,7 +7934,7 @@ function setupWindowState() {
   window.addEventListener("beforeunload", saveWindowSize);
 }
 var INGEST_PORT = 43110;
-var INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com"];
+var INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com", "xiaohongshu.com", "xhslink.com"];
 function isIngestUrlAllowed(value) {
   try {
     const parsed = new URL(String(value || ""));

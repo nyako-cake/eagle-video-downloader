@@ -8,19 +8,20 @@
 
 ## 支持的平台
 
-YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、Vimeo、Sankaku 以及[更多平台](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)。
+YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、Vimeo、Sankaku、小红书 以及[更多平台](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)。
 
 ## 功能特性
 
 支持 yt-dlp 支持的视频网站，首次运行需要在依赖管理页点击安装 yt-dlp，使用 Eagle 官方 FFmpeg 插件合并音视频，下载完成后自动导入到 Eagle 并保存元数据，支持中英文界面，显示实时下载进度。同时支持下载 Pinterest 纯图片 Pin（自动获取高清原图）。
 
-## 新增与改动（3.2.0 – 3.5.1）
+## 新增与改动（3.2.0 – 3.6.0）
 
 本分支相对上游 3.0.0 的主要改动如下。
 
 ### 站点与内容
 
 - Sankaku（sankaku.app / sankakucomplex.com）：投稿视频与图片下载，可在设置页填入 accessToken 以获取仅登录可见内容
+- 小红书（xiaohongshu.com）：笔记图片与视频下载，标题作为文件名、正文作为注释、话题作为标签；多图按标题编号，原图优先（HEIC 自动转 JPEG）
 - Twitter / X 图片：图片推文按原图尺寸保存，多图逐张下载，推文正文写入 Eagle 注释
 - 一条推文包含多个视频时逐个下载，不再只取第一个
 
@@ -56,7 +57,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 
 - 插件在 `0.0.0.0:43110` 提供 `GET /ping`、`GET /peers` 与 `POST /ingest`，本机扩展与局域网设备都可访问
 - `/peers` 会扫描本机所在网段，返回正在运行本插件的设备列表
-- 仅接受 https 且域名在 x.com / twitter.com / video.twimg.com / pbs.twimg.com / sankaku 白名单内的链接，请求体上限 16 KB
+- 仅接受 https 且域名在 x.com / twitter.com / video.twimg.com / pbs.twimg.com / sankaku / xiaohongshu 白名单内的链接，请求体上限 16 KB
 - 依赖未就绪时返回 503；收到链接后自动入队，并唤起插件窗口
 
 ## 浏览器扩展（Edge / Chromium）
@@ -70,6 +71,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 - X / Twitter：推文操作栏注入「保存到 Eagle」下载按钮和「分享到局域网设备」分享按钮，推文分享菜单里也有「分享到局域网设备」
 - 点赞或收藏帖子时自动推送链接，可在扩展弹窗分别开关
 - Sankaku：页面右下角浮动按钮，推送当前帖子链接
+- 小红书：笔记页右下角浮动按钮，保存当前笔记（标题作为文件名，正文与话题写入 Eagle）；链接需带 xsec_token
 - 弹窗「局域网设备」：扫描并记住同网段设备，发送当前页面链接（只发送，不在本机下载）
 - 插件未打开时，扩展会通过 Eagle 本地接口尝试唤醒插件，再重试推送
 - 插件不可用时，对直链媒体退回 Eagle 本地 API `127.0.0.1:41595`
@@ -86,7 +88,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 
 1. 复制页面链接
 2. 粘贴到插件输入框（点击输入框左侧的粘贴按钮会自动识别并开始下载）
-3. 或直接在 X / Twitter 推文上点操作栏的保存按钮、点赞、收藏，由扩展推送
+3. 或直接在 X / Twitter 推文上点操作栏的保存按钮、点赞、收藏，由扩展推送；在小红书笔记页点右下角浮动按钮保存当前笔记
 4. 下载完成后自动导入到 Eagle
 
 ## 常见问题
@@ -97,7 +99,8 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 - 受限推文（NSFW / 年龄限制）下载失败：确认插件窗口处于打开状态，插件会通过公开接口解析直链
 - 合并阶段百分比跳变：合并进度按输出文件增长估算，小文件可能从 0% 直接跳到 100%
 - 局域网扫描不到设备：确认两台设备在同一网段、接收端已打开 Eagle 插件，并在 Windows 防火墙放行 43110 入站
-- 重复下载：插件按推文 / 投稿去重，24 小时内同一内容只会下载一次；如仍重复，检查是否同时开启了扩展推送与自动抓取同一来源
+- 重复下载：插件按推文 / 投稿 / 笔记去重，24 小时内同一内容只会下载一次；如仍重复，检查是否同时开启了扩展推送与自动抓取同一来源
+- 小红书提示「无法读取该笔记」：链接需要带 xsec_token，请从 App 分享菜单或浏览器地址栏复制完整链接（形如 `.../explore/<id>?xsec_token=...`），只有笔记 ID 的链接无法匿名读取
 
 ## 开发
 

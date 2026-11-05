@@ -1,6 +1,7 @@
 /* Eagle 视频下载助手 — 内容脚本
  * X / Twitter：把下载按钮插到推文操作栏「分享」按钮旁边（图片、视频推文都适用）
  * Sankaku（sankaku.app）：右下角固定浮动按钮
+ * 小红书（xiaohongshu.com）：笔记页右下角固定浮动按钮
  * 点击后把页面链接（以及可选的直链）推送给本机 Eagle 插件。
  */
 (function () {
@@ -10,6 +11,7 @@
   const BTN_ID = "evd-eagle-media-download";
   const ACTION_CLASS = "evd-eagle-action";
   const SANKAKU_POST_RE = /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?\/posts?(?:\/show)?\/([A-Za-z0-9]+)\/?$/i;
+  const XHS_NOTE_RE = /^\/(?:explore|discovery\/item|note)\/([0-9a-f]{24})\/?$/i;
 
   const SITE = (function () {
     const host = (location.hostname || "").toLowerCase();
@@ -18,6 +20,9 @@
     }
     if (host === "sankaku.app" || host.endsWith(".sankaku.app") || host.endsWith(".sankakucomplex.com")) {
       return "sankaku";
+    }
+    if (host === "xiaohongshu.com" || host.endsWith(".xiaohongshu.com")) {
+      return "xiaohongshu";
     }
     return null;
   })();
@@ -124,6 +129,26 @@
     const src = (video && (video.currentSrc || video.src)) || "";
     if (/^https:\/\/[^/]*sankakucomplex\.com\//i.test(src)) return src;
     return null;
+  }
+
+  /** 小红书笔记地址（保留 xsec_token，这是匿名读取笔记的凭证） */
+  function getXiaohongshuNoteUrl() {
+    if (!XHS_NOTE_RE.test(location.pathname || "")) return null;
+    try {
+      const url = new URL(location.href);
+      url.hash = "";
+      return url.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function hasXsecToken(url) {
+    try {
+      return !!new URL(url).searchParams.get("xsec_token");
+    } catch (e) {
+      return false;
+    }
   }
 
   function findSankakuSidebar() {
@@ -444,6 +469,8 @@
 
     const wrap = document.createElement("div");
     wrap.className = "wrap";
+    // 小红书右下角有官方悬浮操作栏，按钮上移避免遮挡
+    if (SITE === "xiaohongshu") wrap.style.bottom = "96px";
 
     const btn = document.createElement("button");
     btn.id = BTN_ID;
@@ -457,10 +484,22 @@
       event.stopPropagation();
       if (btn.dataset.state === "sending") return;
       const label = btn.querySelector(".label");
-      const target = resolveSankakuTarget();
+      const target = resolveFloatingTarget();
       if (!target) {
         btn.dataset.state = "error";
-        if (label) label.textContent = "未找到可下载的媒体";
+        if (label) label.textContent = SITE === "xiaohongshu" ? "请打开笔记页" : "未找到可下载的媒体";
+        return;
+      }
+      if (target.needsToken) {
+        btn.dataset.state = "error";
+        btn.classList.add("is-error");
+        if (label) label.textContent = "链接缺少 xsec_token";
+        showToast("请从 App 分享菜单或分享链接打开该笔记后再保存");
+        setTimeout(() => {
+          btn.dataset.state = "idle";
+          btn.classList.remove("is-ok", "is-error");
+          if (label) label.textContent = "保存到 Eagle";
+        }, 2400);
         return;
       }
       btn.dataset.state = "sending";
@@ -479,7 +518,7 @@
         btn.dataset.state = "idle";
         btn.classList.remove("is-ok", "is-error");
         if (label) label.textContent = "保存到 Eagle";
-        refreshSankakuButton();
+        refreshFloatingButton();
       }, 2400);
     });
 
@@ -500,21 +539,31 @@
     return candidates[0];
   }
 
-  function resolveSankakuTarget() {
+  function resolveFloatingTarget() {
+    if (SITE === "xiaohongshu") {
+      const url = getXiaohongshuNoteUrl();
+      if (!url) return null;
+      return { url, mediaUrl: null, needsToken: !hasXsecToken(url) };
+    }
     const url = getSankakuPostUrl();
     if (!url) return null;
     const media = pickSankakuMedia();
     return { url, mediaUrl: media ? getSankakuMediaUrl(media) : null };
   }
 
-  function refreshSankakuButton() {
-    const target = resolveSankakuTarget();
+  function refreshFloatingButton() {
+    const target = resolveFloatingTarget();
     if (!target) {
       if (hostEl && hostEl.isConnected) hostEl.remove();
       return false;
     }
     ensureHost();
     return true;
+  }
+
+  /** 兼容旧测试入口 */
+  function refreshSankakuButton() {
+    return refreshFloatingButton();
   }
 
   /* ------------------------------------------------------------ scan */
@@ -529,8 +578,8 @@
       }
       return count;
     }
-    if (SITE === "sankaku") {
-      return refreshSankakuButton() ? 1 : 0;
+    if (SITE === "sankaku" || SITE === "xiaohongshu") {
+      return refreshFloatingButton() ? 1 : 0;
     }
     return 0;
   }
@@ -661,7 +710,7 @@
     const observer = new MutationObserver(() => scheduleScan());
     observer.observe(document.body, { childList: true, subtree: true });
     setInterval(() => {
-      if (SITE === "sankaku") refreshSankakuButton();
+      if (SITE === "sankaku" || SITE === "xiaohongshu") refreshFloatingButton();
     }, 1200);
     window.addEventListener("popstate", () => scheduleScan());
   }
@@ -689,6 +738,10 @@
     getSankakuPostUrl,
     getSankakuPostUrlFor,
     getSankakuMediaUrl,
+    getXiaohongshuNoteUrl,
+    hasXsecToken,
+    resolveFloatingTarget,
+    refreshFloatingButton,
     refreshSankakuButton,
     findSankakuSidebar,
     hostId: HOST_ID,

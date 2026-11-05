@@ -76,7 +76,11 @@
     "privateVideo": "This video is private or requires sign-in",
     "unknown": "Unknown",
     "sankakuLoginOrDeleted": "Sankaku post not found for anonymous requests; it may require login or be deleted. Add your account cookie in Settings -> Sankaku Account.",
-    "sankakuAuthExpired": "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account."
+    "sankakuAuthExpired": "Sankaku login expired. Please update the account cookie in Settings -> Sankaku Account.",
+    "xhsExtractFailed": "Failed to read this Xiaohongshu note, please check your network and try again",
+    "xhsNoteUnavailable": "This Xiaohongshu note cannot be read: the link must include xsec_token (copy the full link from the app share menu or the browser address bar). The note may also be deleted or login-only.",
+    "xhsUnsupported": "Only Xiaohongshu note links are supported (/explore/ or /discovery/item/)",
+    "xhsNoMedia": "No downloadable image or video found in this Xiaohongshu note"
   },
   "progress": {
     "remaining": "Remaining"

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Eagle 视频下载助手（X / Sankaku）",
-  "version": "1.0.0",
-  "description": "把 X/Twitter、Sankaku 的视频与图片推送到 Eagle：页面按钮、工具栏图标、点赞或收藏自动推送。",
+  "name": "Eagle 视频下载助手（X / Sankaku / 小红书）",
+  "version": "1.1.0",
+  "description": "把 X/Twitter、Sankaku、小红书的视频与图片推送到 Eagle：页面按钮、工具栏图标、点赞或收藏自动推送。",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
@@ -23,7 +23,9 @@
         "https://mobile.twitter.com/*",
         "https://sankaku.app/*",
         "https://*.sankaku.app/*",
-        "https://*.sankakucomplex.com/*"
+        "https://*.sankakucomplex.com/*",
+        "https://www.xiaohongshu.com/*",
+        "https://*.xiaohongshu.com/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"],

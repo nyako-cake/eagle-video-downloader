@@ -27,11 +27,17 @@ async function importToEagle(videoPath, metadata, sourceUrl) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next.t("error.eagleApiNotAvailable"));
   }
+  // 站点适配器可以给出更准确的标签（如小红书话题），否则退回站点名
+  const adapterTags = Array.isArray(metadata.tags)
+    ? metadata.tags
+      .map((tag) => String(tag || "").trim().replace(/^#+/, ""))
+      .filter(Boolean)
+    : [];
   const importOptions = {
     name: metadata.title || i18next.t("error.downloadedVideo"),
     website: sourceUrl || undefined,
-    tags: [metadata.extractor || "video"],
-    annotation: metadata.description ? metadata.description.slice(0, 500) : "",
+    tags: adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"],
+    annotation: metadata.description ? metadata.description.slice(0, 5000) : "",
   };
   try {
     return await eagle.item.addFromPath(videoPath, importOptions);
@@ -583,6 +589,8 @@ function downloadKey(url) {
   if (tweet) return "tw:" + tweet[1];
   const sankaku = text.match(/\/(?:posts?|post\/show)\/([A-Za-z0-9]+)/i);
   if (sankaku) return "sk:" + sankaku[1];
+  const xiaohongshu = text.match(/xiaohongshu\.com\/(?:explore|discovery\/item|note)\/([0-9a-f]{24})/i);
+  if (xiaohongshu) return "xhs:" + xiaohongshu[1].toLowerCase();
   return "url:" + text.split("#")[0];
 }
 
@@ -989,7 +997,7 @@ function setupWindowState() {
 // 桥接服务：接收浏览器扩展 / 局域网设备推送的链接（监听 0.0.0.0:43110）
 // ---------------------------------------------------------------------------
 const INGEST_PORT = 43110;
-const INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com"];
+const INGEST_ALLOWED_HOSTS = ["x.com", "twitter.com", "mobile.twitter.com", "video.twimg.com", "pbs.twimg.com", "sankaku.app", "sankakucomplex.com", "xiaohongshu.com", "xhslink.com"];
 
 function isIngestUrlAllowed(value) {
   try {

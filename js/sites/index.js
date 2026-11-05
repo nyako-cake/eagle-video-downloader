@@ -9,6 +9,7 @@ const instagram = require('./instagram');
 const pinterest = require('./pinterest');
 const dribbble = require('./dribbble');
 const sankaku = require('./sankaku');
+const xiaohongshu = require('./xiaohongshu');
 
 const adapters = [
   bilibili,
@@ -18,6 +19,7 @@ const adapters = [
   pinterest,
   dribbble,
   sankaku,
+  xiaohongshu,
 ];
 
 function findAdapter(url) {

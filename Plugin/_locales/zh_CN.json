@@ -76,7 +76,11 @@
     "privateVideo": "私密视频或需要登录访问",
     "unknown": "未知",
     "sankakuLoginOrDeleted": "未找到该投稿，可能需要登录后才能查看，或投稿已删除。可在「设置 → Sankaku 账号」中填写 Cookie 后重试。",
-    "sankakuAuthExpired": "Sankaku 登录已失效，请在「设置 → Sankaku 账号」中更新 Cookie。"
+    "sankakuAuthExpired": "Sankaku 登录已失效，请在「设置 → Sankaku 账号」中更新 Cookie。",
+    "xhsExtractFailed": "小红书笔记解析失败，请检查网络后重试",
+    "xhsNoteUnavailable": "无法读取该小红书笔记：链接需带 xsec_token（请从 App 分享菜单或浏览器地址栏复制完整链接），也可能笔记已删除或仅登录可见",
+    "xhsUnsupported": "仅支持小红书笔记链接（/explore/ 或 /discovery/item/）",
+    "xhsNoMedia": "未在该小红书笔记中找到可下载的图片或视频"
   },
   "progress": {
     "remaining": "剩余"
