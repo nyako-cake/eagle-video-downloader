@@ -6086,9 +6086,24 @@ var require_twitter_name = __commonJS({
       text: false
     };
     var FIELD_ORDER = ["authorId", "tweetId", "screenName", "text", "name"];
+    var DEFAULT_ORDER = FIELD_ORDER.slice();
+    function normalizeOrder(order) {
+      const result = [];
+      if (Array.isArray(order)) {
+        for (const field of order) {
+          if (FIELD_ORDER.includes(field) && !result.includes(field))
+            result.push(field);
+        }
+      }
+      for (const field of FIELD_ORDER) {
+        if (!result.includes(field))
+          result.push(field);
+      }
+      return result;
+    }
     var NAME_MAX_LENGTH = 150;
     function getDefaultPrefs() {
-      return Object.assign({}, DEFAULT_PREFS);
+      return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
     }
     function cleanValue(raw, maxLength) {
       let value = String(raw == null ? "" : raw).replace(/https:\/\/t\.co\/\S+/gi, " ").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
@@ -6117,7 +6132,7 @@ var require_twitter_name = __commonJS({
       const enabled = Object.assign(getDefaultPrefs(), prefs || {});
       const values = fieldValues(metadata);
       const parts = [];
-      for (const field of FIELD_ORDER) {
+      for (const field of normalizeOrder(enabled.order)) {
         if (!enabled[field])
           continue;
         const value = values[field];
@@ -6139,6 +6154,17 @@ var require_twitter_name = __commonJS({
       const base = String(name == null ? "" : name).slice(0, Math.max(1, max - suffix.length)).trimEnd();
       return base + suffix;
     }
+    function moveInOrder(order, field, direction) {
+      const list = normalizeOrder(order);
+      const index = list.indexOf(field);
+      const target = index + (direction === "up" ? -1 : 1);
+      if (index < 0 || target < 0 || target >= list.length)
+        return null;
+      const moved = list[target];
+      list[target] = list[index];
+      list[index] = moved;
+      return list;
+    }
     function composeImportName(metadata, prefs, part, fallbackTitle) {
       const meta = metadata || {};
       const isTwitter = String(meta.extractor || "").toLowerCase() === "twitter";
@@ -6150,9 +6176,12 @@ var require_twitter_name = __commonJS({
     module2.exports = {
       DEFAULT_PREFS,
       FIELD_ORDER,
+      DEFAULT_ORDER,
       FIELD_MAX_LENGTH,
       NAME_MAX_LENGTH,
       getDefaultPrefs,
+      normalizeOrder,
+      moveInOrder,
       buildTwitterName,
       appendPartSuffix,
       composeImportName,
@@ -6678,6 +6707,7 @@ var require_ui = __commonJS({
         if (label)
           label.textContent = i18next.t(`deps.${ids.label}`);
       }
+      applyTwitterNameOrder(namePrefs.order);
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -6971,6 +7001,25 @@ var require_ui = __commonJS({
           break;
       }
     }
+    function applyTwitterNameOrder(order) {
+      const container = document.getElementById("twNameFields");
+      if (!container)
+        return;
+      for (const field of twitterName2.normalizeOrder(order)) {
+        const row = container.querySelector(`.setting-check-row[data-field="${field}"]`);
+        if (row)
+          container.appendChild(row);
+      }
+      const rows = Array.from(container.querySelectorAll(".setting-check-row"));
+      rows.forEach((row, index) => {
+        const up = row.querySelector('[data-move="up"]');
+        const down = row.querySelector('[data-move="down"]');
+        if (up)
+          up.disabled = index === 0;
+        if (down)
+          down.disabled = index === rows.length - 1;
+      });
+    }
     module2.exports = {
       updateTheme,
       showMainUI,
@@ -6988,6 +7037,7 @@ var require_ui = __commonJS({
       setDepsGating,
       switchSubpageTab,
       autoGrowTextarea,
+      applyTwitterNameOrder,
       refreshAccountFields,
       applyIntervalSelect,
       getIntervalChoice,
@@ -7104,7 +7154,7 @@ var require_en = __commonJS({
       deps: {
         title: "Settings & Dependencies",
         tabSettings: "Settings",
-        tabTags: "Auto Tags",
+        tabTags: "Import Info",
         tabDependencies: "Dependencies",
         sectionPreferences: "Preferences",
         sectionEngines: "Core Engines",
@@ -7121,18 +7171,18 @@ var require_en = __commonJS({
         themePurple: "Purple",
         autoAddSourceLabel: "Auto-set Eagle Data Source",
         autoAddSourceHint: "When enabled, original web URLs are automatically saved to Eagle items",
-        tagsTitle: "Auto Tags",
+        tagsTitle: "Import Info Rules",
         xhsTagsLabel: "Xiaohongshu Tags",
         xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
         tagsNote: "Tags are written into Eagle when an item is imported: Xiaohongshu notes use their topics, other sites use the site identifier. Up to 30 tags per import.",
-        twNameTitle: "Twitter File Name",
-        twNameHint: 'Pick the tweet fields used to build the imported item name; with nothing selected the default "tweet text - @handle" is kept.',
+        twNameTitle: "Twitter Info Rules",
+        twNameHint: 'Pick the tweet fields used to build the imported item name, then use the arrows on each row to set the order. With nothing selected the default "tweet text - @handle" is kept.',
         twNameAuthorIdLabel: "Twitter ID (author numeric ID)",
         twNameTweetIdLabel: "Tweet ID",
         twNameScreenNameLabel: "Username (@handle)",
         twNameTextLabel: "Tweet text",
         twNameFullNameLabel: "Full name",
-        twNameNote: 'Fields are joined with " - " in the order Twitter ID, Tweet ID, username, tweet text, full name; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, " (1/N)" is appended to keep the names unique.',
+        twNameNote: 'Fields are joined with " - " in the order you arrange; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, " (1/N)" is appended to keep the names unique.',
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7315,7 +7365,7 @@ var require_zh_CN = __commonJS({
       deps: {
         title: "\u8BBE\u7F6E\u4E0E\u4F9D\u8D56\u7BA1\u7406",
         tabSettings: "\u504F\u597D\u8BBE\u7F6E",
-        tabTags: "\u81EA\u52A8\u6807\u7B7E",
+        tabTags: "\u5BFC\u5165\u4FE1\u606F\u89C4\u5219",
         tabDependencies: "\u4F9D\u8D56\u7BA1\u7406",
         sectionPreferences: "\u504F\u597D\u8BBE\u7F6E",
         sectionEngines: "\u6838\u5FC3\u5F15\u64CE\u4F9D\u8D56",
@@ -7332,18 +7382,18 @@ var require_zh_CN = __commonJS({
         themePurple: "\u7D2B\u8272",
         autoAddSourceLabel: "\u81EA\u52A8\u8BBE\u7F6E Eagle \u6570\u636E\u6765\u6E90",
         autoAddSourceHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u89C6\u9891\u65F6\u4F1A\u81EA\u52A8\u5728 Eagle \u4E2D\u8BB0\u5F55\u539F\u59CB\u7F51\u9875 URL",
-        tagsTitle: "\u81EA\u52A8\u6807\u7B7E",
+        tagsTitle: "\u5BFC\u5165\u4FE1\u606F\u89C4\u5219",
         xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",
         xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
         tagsNote: "\u6807\u7B7E\u5728\u4E0B\u8F7D\u5B8C\u6210\u5BFC\u5165 Eagle \u65F6\u5199\u5165\uFF1A\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u5199\u5165\u8BDD\u9898\u6807\u7B7E\uFF0C\u5176\u4ED6\u7AD9\u70B9\u5199\u5165\u7AD9\u70B9\u6807\u8BC6\uFF0C\u5355\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
-        twNameTitle: "\u63A8\u7279\u6587\u4EF6\u540D",
-        twNameHint: "\u52FE\u9009\u7528\u4E8E\u62FC\u63A5\u5BFC\u5165\u7D20\u6750\u540D\u79F0\u7684\u63A8\u6587\u5B57\u6BB5\uFF1B\u4E00\u9879\u90FD\u4E0D\u52FE\u65F6\u6CBF\u7528\u9ED8\u8BA4\u6807\u9898\u300C\u63A8\u6587\u6B63\u6587 - @\u7528\u6237\u540D\u300D\u3002",
+        twNameTitle: "\u63A8\u7279\u4FE1\u606F\u89C4\u5219",
+        twNameHint: "\u52FE\u9009\u7528\u4E8E\u62FC\u63A5\u5BFC\u5165\u7D20\u6750\u540D\u79F0\u7684\u63A8\u6587\u5B57\u6BB5\uFF0C\u5E76\u7528\u6BCF\u884C\u7684\u7BAD\u5934\u8C03\u6574\u62FC\u63A5\u987A\u5E8F\uFF1B\u4E00\u9879\u90FD\u4E0D\u52FE\u65F6\u6CBF\u7528\u9ED8\u8BA4\u6807\u9898\u300C\u63A8\u6587\u6B63\u6587 - @\u7528\u6237\u540D\u300D\u3002",
         twNameAuthorIdLabel: "\u63A8\u7279 ID\uFF08\u4F5C\u8005\u6570\u5B57 ID\uFF09",
         twNameTweetIdLabel: "\u63A8\u6587 ID",
         twNameScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
         twNameTextLabel: "\u63A8\u6587\u6B63\u6587",
         twNameFullNameLabel: "\u63A8\u7279\u5168\u540D",
-        twNameNote: "\u5B57\u6BB5\u6309\u300C\u63A8\u7279 ID \u2192 \u63A8\u6587 ID \u2192 \u7528\u6237\u540D \u2192 \u63A8\u6587\u6B63\u6587 \u2192 \u63A8\u7279\u5168\u540D\u300D\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
+        twNameNote: "\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7515,6 +7565,8 @@ function getTwitterNamePrefs() {
       if (typeof saved[field] === "boolean")
         prefs[field] = saved[field];
     }
+    if (Array.isArray(saved.order))
+      prefs.order = twitterName.normalizeOrder(saved.order);
   }
   return prefs;
 }
@@ -7524,6 +7576,19 @@ function setTwitterNamePref(field, value) {
   const prefs = getTwitterNamePrefs();
   prefs[field] = value === true;
   localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+}
+function setTwitterNameOrder(order) {
+  const prefs = getTwitterNamePrefs();
+  prefs.order = twitterName.normalizeOrder(order);
+  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+  return prefs.order;
+}
+function moveTwitterNameField(field, direction) {
+  const prefs = getTwitterNamePrefs();
+  const moved = twitterName.moveInOrder(prefs.order, field, direction);
+  if (!moved)
+    return null;
+  return setTwitterNameOrder(moved);
 }
 function getMaxResolutionPref() {
   return localStorage.getItem(MAX_RESOLUTION_KEY) || "auto";
@@ -7708,6 +7773,22 @@ function setupEventListeners() {
         setTwitterNamePref(field, e.target.checked);
       });
     }
+  }
+  const twNameFields = document.getElementById("twNameFields");
+  if (twNameFields) {
+    twNameFields.addEventListener("click", (e) => {
+      const button = e.target.closest(".setting-order-btn");
+      if (!button)
+        return;
+      const row = button.closest(".setting-check-row");
+      const field = row && row.dataset.field;
+      if (!field)
+        return;
+      const direction = button.dataset.move === "up" ? "up" : "down";
+      const order = moveTwitterNameField(field, direction);
+      if (order)
+        ui.applyTwitterNameOrder(order);
+    });
   }
   const maxResSelect = document.getElementById("maxResolutionSelect");
   if (maxResSelect) {
@@ -8551,4 +8632,11 @@ function setupPinButton() {
     apply(pinned);
   });
 }
-module.exports = { buildImportTags };
+module.exports = {
+  buildImportTags,
+  buildImportName,
+  getTwitterNamePrefs,
+  setTwitterNamePref,
+  setTwitterNameOrder,
+  moveTwitterNameField
+};

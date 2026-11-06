@@ -599,6 +599,7 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     const label = document.getElementById(ids.label);
     if (label) label.textContent = i18next.t(`deps.${ids.label}`);
   }
+  applyTwitterNameOrder(namePrefs.order);
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");
@@ -892,6 +893,31 @@ function updateFfmpegCard(state, data = {}) {
   }
 }
 
+/**
+ * 按保存的顺序重排推特命名字段行，并禁用首行的「上移」与末行的「下移」
+ * @param {string[]} order
+ */
+function applyTwitterNameOrder(order) {
+  const container = document.getElementById("twNameFields");
+  if (!container) return;
+  for (const field of twitterName.normalizeOrder(order)) {
+    const row = container.querySelector(`.setting-check-row[data-field="${field}"]`);
+    if (row) container.appendChild(row);
+  }
+  const rows = Array.from(container.querySelectorAll(".setting-check-row"));
+  rows.forEach((row, index) => {
+    const up = row.querySelector('[data-move="up"]');
+    const down = row.querySelector('[data-move="down"]');
+    if (up) up.disabled = index === 0;
+    if (down) down.disabled = index === rows.length - 1;
+  });
+}
+
+/**
+ * 读取当前界面上的字段行顺序
+ * @returns {string[]}
+ */
+
 module.exports = {
   updateTheme,
   showMainUI,
@@ -909,6 +935,7 @@ module.exports = {
   setDepsGating,
   switchSubpageTab,
   autoGrowTextarea,
+  applyTwitterNameOrder,
   refreshAccountFields,
   applyIntervalSelect,
   getIntervalChoice,

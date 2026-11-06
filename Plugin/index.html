@@ -1161,6 +1161,53 @@
       cursor: pointer;
     }
 
+    .setting-check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      min-height: 22px;
+      padding: 1px 4px;
+      border-radius: 5px;
+    }
+
+    .setting-check-row:hover {
+      background: var(--bg-hover);
+    }
+
+    .setting-order-actions {
+      display: flex;
+      gap: 3px;
+      flex: 0 0 auto;
+    }
+
+    .setting-order-btn {
+      width: 20px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1;
+      color: var(--fg2);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .setting-order-btn:hover:not(:disabled) {
+      color: var(--fg1);
+      border-color: var(--brand);
+    }
+
+    .setting-order-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
     .setting-radio-group {
       display: flex;
       flex-wrap: wrap;
@@ -1466,7 +1513,7 @@
             </button>
             <div class="subpage-tabs no-drag">
               <button id="tabBtnSettings" class="subpage-tab-btn active" data-tab="settings">Settings</button>
-              <button id="tabBtnTags" class="subpage-tab-btn" data-tab="tags">Auto Tags</button>
+              <button id="tabBtnTags" class="subpage-tab-btn" data-tab="tags">Import Info</button>
               <button id="tabBtnDeps" class="subpage-tab-btn" data-tab="dependencies">Dependencies</button>
               <button id="tabBtnAccount" class="subpage-tab-btn" data-tab="account">Accounts</button>
             </div>
@@ -1574,7 +1621,7 @@
             <!-- Auto Tags Panel -->
             <div id="tagsPanel" class="hidden">
               <div class="settings-card">
-                <div class="settings-section-title" id="tagsTitle">Auto Tags</div>
+                <div class="settings-section-title" id="tagsTitle">Import Info Rules</div>
                 <div class="setting-row">
                   <div class="setting-info">
                     <span id="xhsTagsLabel" class="setting-title">Xiaohongshu Tags</span>
@@ -1589,35 +1636,65 @@
               </div>
 
               <div class="settings-card">
-                <div class="settings-section-title" id="twNameTitle">Twitter File Name</div>
+                <div class="settings-section-title" id="twNameTitle">Twitter Info Rules</div>
                 <div class="setting-row setting-row-column">
                   <div class="setting-info">
-                    <span id="twNameHint" class="setting-desc">Pick the tweet fields used to build the imported item name. Nothing selected keeps the default "tweet text - @handle".</span>
+                    <span id="twNameHint" class="setting-desc">Pick the tweet fields used to build the imported item name, and use the arrows to set the order they are joined in. Nothing selected keeps the default "tweet text - @handle".</span>
                   </div>
-                  <div class="setting-checkboxes setting-checkboxes-column no-drag">
-                    <label class="setting-check no-drag">
-                      <input type="checkbox" id="twNameAuthorId" />
-                      <span id="twNameAuthorIdLabel">Twitter ID (author numeric ID)</span>
-                    </label>
-                    <label class="setting-check no-drag">
-                      <input type="checkbox" id="twNameTweetId" />
-                      <span id="twNameTweetIdLabel">Tweet ID</span>
-                    </label>
-                    <label class="setting-check no-drag">
-                      <input type="checkbox" id="twNameScreenName" />
-                      <span id="twNameScreenNameLabel">Username (@handle)</span>
-                    </label>
-                    <label class="setting-check no-drag">
-                      <input type="checkbox" id="twNameText" />
-                      <span id="twNameTextLabel">Tweet text</span>
-                    </label>
-                    <label class="setting-check no-drag">
-                      <input type="checkbox" id="twNameFullName" />
-                      <span id="twNameFullNameLabel">Full name</span>
-                    </label>
+                  <div id="twNameFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                    <div class="setting-check-row no-drag" data-field="authorId">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twNameAuthorId" />
+                        <span id="twNameAuthorIdLabel">Twitter ID (author numeric ID)</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="tweetId">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twNameTweetId" />
+                        <span id="twNameTweetIdLabel">Tweet ID</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="screenName">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twNameScreenName" />
+                        <span id="twNameScreenNameLabel">Username (@handle)</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="text">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twNameText" />
+                        <span id="twNameTextLabel">Tweet text</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="name">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twNameFullName" />
+                        <span id="twNameFullNameLabel">Full name</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <p class="setting-note" id="twNameNote">Fields are joined with " - " in a fixed order; illegal filename characters are replaced; several images or videos in one tweet get " (1/N)" appended.</p>
+                <p class="setting-note" id="twNameNote">Fields are joined with " - " in the order you arrange; illegal filename characters are replaced; several images or videos in one tweet get " (1/N)" appended.</p>
               </div>
             </div>
 

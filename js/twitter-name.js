@@ -24,14 +24,36 @@ const DEFAULT_PREFS = {
   text: false,
 };
 
-/** 字段拼接顺序固定，与勾选顺序无关：推特 ID → 推文 ID → 用户名 → 推文正文 → 推特全名 */
+/** 字段拼接顺序，用户可在设置页用上下箭头调整 */
 const FIELD_ORDER = ["authorId", "tweetId", "screenName", "text", "name"];
+
+/** 默认拼接顺序：推特 ID → 推文 ID → 用户名 → 推文正文 → 推特全名 */
+const DEFAULT_ORDER = FIELD_ORDER.slice();
+
+/**
+ * 校正用户保存的顺序：丢掉不认识的字段与重复项，再把漏掉的字段按默认顺序补到末尾，
+ * 保证返回一个包含全部字段的完整顺序。
+ * @param {Array} order
+ * @returns {string[]}
+ */
+function normalizeOrder(order) {
+  const result = [];
+  if (Array.isArray(order)) {
+    for (const field of order) {
+      if (FIELD_ORDER.includes(field) && !result.includes(field)) result.push(field);
+    }
+  }
+  for (const field of FIELD_ORDER) {
+    if (!result.includes(field)) result.push(field);
+  }
+  return result;
+}
 
 /** 拼接后的总长度上限 */
 const NAME_MAX_LENGTH = 150;
 
 function getDefaultPrefs() {
-  return Object.assign({}, DEFAULT_PREFS);
+  return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
 }
 
 /**
@@ -86,14 +108,14 @@ function fieldValues(metadata) {
 /**
  * 生成推特素材名
  * @param {Object} metadata 下载元信息
- * @param {Object} prefs 勾选状态 { authorId, tweetId, screenName, name, text }
+ * @param {Object} prefs 勾选状态 { authorId, tweetId, screenName, text, name, order }
  * @returns {string} 空串表示未勾选任何字段，调用方应回落到默认标题
  */
 function buildTwitterName(metadata, prefs) {
   const enabled = Object.assign(getDefaultPrefs(), prefs || {});
   const values = fieldValues(metadata);
   const parts = [];
-  for (const field of FIELD_ORDER) {
+  for (const field of normalizeOrder(enabled.order)) {
     if (!enabled[field]) continue;
     const value = values[field];
     if (value) parts.push(value);
@@ -125,6 +147,24 @@ function appendPartSuffix(name, index, total, limit) {
 }
 
 /**
+ * 把某个字段在顺序里上移或下移一格
+ * @param {string[]} order
+ * @param {string} field
+ * @param {"up"|"down"} direction
+ * @returns {string[]|null} 越界或字段不存在时返回 null
+ */
+function moveInOrder(order, field, direction) {
+  const list = normalizeOrder(order);
+  const index = list.indexOf(field);
+  const target = index + (direction === "up" ? -1 : 1);
+  if (index < 0 || target < 0 || target >= list.length) return null;
+  const moved = list[target];
+  list[target] = list[index];
+  list[index] = moved;
+  return list;
+}
+
+/**
  * 组装最终导入名：推特按勾选字段拼名，否则用适配器标题，再按 (i/N) 追加序号。
  * @param {Object} metadata
  * @param {Object} prefs
@@ -144,9 +184,12 @@ function composeImportName(metadata, prefs, part, fallbackTitle) {
 module.exports = {
   DEFAULT_PREFS,
   FIELD_ORDER,
+  DEFAULT_ORDER,
   FIELD_MAX_LENGTH,
   NAME_MAX_LENGTH,
   getDefaultPrefs,
+  normalizeOrder,
+  moveInOrder,
   buildTwitterName,
   appendPartSuffix,
   composeImportName,

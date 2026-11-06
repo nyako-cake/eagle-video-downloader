@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.8.2)
+## What's New (3.2.0 - 3.9.0)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -55,13 +55,13 @@ Main changes in this branch compared to upstream 3.0.0.
 - Resizable window: minimum 360 × 420, size saved 300ms after resizing stops and immediately on close, restored on next launch
 - Remove records: hover a download item to reveal a × that removes it; active downloads cannot be removed and imported Eagle items are untouched
 
-### Auto tags
+### Import info rules
 
-- The settings tab bar gets a new "Auto Tags" tab, placed right after Settings, that groups the tags written into Eagle on import
+- The settings tab bar gets a new "Import Info" tab, placed right after Settings, that groups the tags written into Eagle on import and the imported item naming rules
 - The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
 - The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
-- Twitter file name: a "Twitter File Name" card on the same tab uses checkboxes to pick the fields that build the imported item name - Twitter ID (author numeric ID), Tweet ID, username (@handle), tweet text and full name
-- Twitter defaults to nothing selected, keeping "tweet text - @handle"; selected fields are joined with " - " in that order, truncated past 150 characters, and illegal filename characters are replaced
+- Twitter info rules: a "Twitter Info Rules" card on the same tab uses checkboxes to pick the fields that build the imported item name - Twitter ID (author numeric ID), Tweet ID, username (@handle), tweet text and full name
+- Each field row has move-up/move-down buttons, and the name is joined with " - " in the order you arrange; with nothing selected the default "tweet text - @handle" is kept, names are truncated past 150 characters and illegal filename characters are replaced
 - When one tweet has several images or videos, " (1/N)" is appended to the imported item name so the files do not collide
 
 ### Bridge and LAN

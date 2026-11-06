@@ -115,12 +115,12 @@ function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 
-// 推特素材命名的勾选状态（JSON：{ authorId, tweetId, screenName, text, name }）
+// 推特素材命名的勾选状态与字段顺序（JSON：{ authorId, tweetId, screenName, text, name, order }）
 const TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
 
 /**
- * 获取推特素材命名的勾选状态，缺失的字段回落到默认值
- * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean}}
+ * 获取推特素材命名的勾选状态与字段顺序，缺失的字段回落到默认值
+ * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean, order: string[]}}
  */
 function getTwitterNamePrefs() {
   const raw = localStorage.getItem(TWITTER_NAME_KEY);
@@ -137,6 +137,7 @@ function getTwitterNamePrefs() {
     for (const field of twitterName.FIELD_ORDER) {
       if (typeof saved[field] === "boolean") prefs[field] = saved[field];
     }
+    if (Array.isArray(saved.order)) prefs.order = twitterName.normalizeOrder(saved.order);
   }
   return prefs;
 }
@@ -151,6 +152,31 @@ function setTwitterNamePref(field, value) {
   const prefs = getTwitterNamePrefs();
   prefs[field] = value === true;
   localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+}
+
+/**
+ * 保存字段拼接顺序，返回校正后的顺序
+ * @param {string[]} order
+ * @returns {string[]}
+ */
+function setTwitterNameOrder(order) {
+  const prefs = getTwitterNamePrefs();
+  prefs.order = twitterName.normalizeOrder(order);
+  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+  return prefs.order;
+}
+
+/**
+ * 把某个字段上移或下移一格，返回新顺序（越界时返回 null）
+ * @param {string} field
+ * @param {"up"|"down"} direction
+ * @returns {string[]|null}
+ */
+function moveTwitterNameField(field, direction) {
+  const prefs = getTwitterNamePrefs();
+  const moved = twitterName.moveInOrder(prefs.order, field, direction);
+  if (!moved) return null;
+  return setTwitterNameOrder(moved);
 }
 
 /**
@@ -392,6 +418,21 @@ function setupEventListeners() {
         setTwitterNamePref(field, e.target.checked);
       });
     }
+  }
+
+  // 推特命名字段顺序：上移 / 下移
+  const twNameFields = document.getElementById("twNameFields");
+  if (twNameFields) {
+    twNameFields.addEventListener("click", (e) => {
+      const button = e.target.closest(".setting-order-btn");
+      if (!button) return;
+      const row = button.closest(".setting-check-row");
+      const field = row && row.dataset.field;
+      if (!field) return;
+      const direction = button.dataset.move === "up" ? "up" : "down";
+      const order = moveTwitterNameField(field, direction);
+      if (order) ui.applyTwitterNameOrder(order);
+    });
   }
 
   // 清晰度上限选择切换
@@ -1364,5 +1405,12 @@ function setupPinButton() {
 }
 
 // 供测试使用；Electron 运行时不会用到
-module.exports = { buildImportTags };
+module.exports = {
+  buildImportTags,
+  buildImportName,
+  getTwitterNamePrefs,
+  setTwitterNamePref,
+  setTwitterNameOrder,
+  moveTwitterNameField,
+};
 

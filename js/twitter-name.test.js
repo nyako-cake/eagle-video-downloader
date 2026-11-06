@@ -1,6 +1,6 @@
 // node js/twitter-name.test.js
 const assert = require("assert");
-const { buildTwitterName, sanitizeName, appendPartSuffix, composeImportName, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
+const { buildTwitterName, sanitizeName, appendPartSuffix, composeImportName, normalizeOrder, moveInOrder, getDefaultPrefs, FIELD_ORDER, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
 
 const tweetMeta = {
   authorId: "44196397",
@@ -73,6 +73,35 @@ assert.strictEqual(buildTwitterName(null, { text: true, name: true }), "");
 
 // 用户名不会重复加 @
 assert.strictEqual(buildTwitterName({ authorScreenName: "@nyako" }, { screenName: true }), "@nyako");
+
+// 用户可调整顺序：拼名按 prefs.order，而不是默认顺序
+assert.strictEqual(
+  buildTwitterName(tweetMeta, { screenName: true, text: true, order: ["text", "tweetId", "screenName", "authorId", "name"] }),
+  "今日份的猫 好可爱 - @nyako_cake",
+  "order in prefs decides the join order"
+);
+
+// 顺序里只给了部分字段时，缺失字段按默认顺序补到末尾
+assert.deepStrictEqual(normalizeOrder(["text", "screenName"]), ["text", "screenName", "authorId", "tweetId", "name"]);
+assert.deepStrictEqual(normalizeOrder(["text", "text", "bogus"]), ["text", "authorId", "tweetId", "screenName", "name"]);
+assert.deepStrictEqual(normalizeOrder(null), FIELD_ORDER.slice());
+assert.deepStrictEqual(getDefaultPrefs().order, FIELD_ORDER.slice(), "default prefs carry the default order");
+
+// 上移 / 下移一格，首行上移与末行下移越界返回 null
+assert.deepStrictEqual(moveInOrder(FIELD_ORDER, "tweetId", "up"), ["tweetId", "authorId", "screenName", "text", "name"]);
+assert.deepStrictEqual(moveInOrder(FIELD_ORDER, "name", "up"), ["authorId", "tweetId", "screenName", "name", "text"]);
+assert.strictEqual(moveInOrder(FIELD_ORDER, "authorId", "up"), null, "first row cannot move up");
+assert.strictEqual(moveInOrder(FIELD_ORDER, "name", "down"), null, "last row cannot move down");
+
+// 调整顺序后，同名两字段的拼接顺序随之变化：把「推特全名」上移两次到用户名之前
+const movedOnce = moveInOrder(FIELD_ORDER, "name", "up");
+const movedTwice = moveInOrder(movedOnce, "name", "up");
+assert.deepStrictEqual(movedTwice, ["authorId", "tweetId", "name", "screenName", "text"]);
+assert.strictEqual(
+  buildTwitterName(tweetMeta, { screenName: true, name: true, order: movedTwice }),
+  "Nyako - @nyako_cake",
+  "moving full name above username flips the joined order"
+);
 
 // 同一条推文多个文件：末尾追加 (i/N)，单个文件不加
 assert.strictEqual(appendPartSuffix("名字", 2, 3, 150), "名字 (2/3)");

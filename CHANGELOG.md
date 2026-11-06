@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.9.0
+
+「自动标签」页改名为「导入信息规则」，「推特文件名」卡片改名为「推特信息规则」，五个命名字段支持调整拼接顺序。
+
+新增功能：
+
+- 设置页页签与页标题由「自动标签」改为「导入信息规则」，英文为 Import Info / Import Info Rules；页签与面板的 DOM id、小红书开关的存储 key 均保持不变
+- 「推特文件名」卡片改为「推特信息规则」，英文为 Twitter Info Rules
+- 每个字段行右侧新增上移 / 下移按钮，顺序保存在 eagle-video-downloader.twitterName 的 order 字段，导入时按该顺序用「 - 」连接；首行不能再上移、末行不能再下移
+- 顺序读入时做校正：未知字段与重复项会被丢掉，缺失字段按默认顺序补到末尾，不会因为写坏 JSON 导致字段丢失
+- normalizeOrder 与 moveInOrder 加入 js/twitter-name.js，并新增 js/twitter-name.import.test.js 覆盖 plugin.js 的拼名与顺序持久化链路，npm test 一并跑这三组测试
+
 ## 3.8.2
 
 修同一条推文导入多个文件时的重名问题。

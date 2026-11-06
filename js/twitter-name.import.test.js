@@ -1,0 +1,86 @@
+// node js/twitter-name.import.test.js
+// 在 Node 里给 plugin.js 造最小的宿主环境，验证「拼名 + 顺序持久化」这条链路。
+const assert = require("assert");
+
+global.localStorage = {
+  store: {},
+  getItem(key) {
+    return this.store[key] === undefined ? null : this.store[key];
+  },
+  setItem(key, value) {
+    this.store[key] = String(value);
+  },
+  removeItem(key) {
+    delete this.store[key];
+  },
+};
+
+global.document = {
+  getElementById() {
+    return null;
+  },
+  addEventListener() {},
+  querySelectorAll() {
+    return [];
+  },
+  createElement() {
+    return {};
+  },
+  body: { appendChild() {} },
+};
+
+global.window = global;
+function stub() {
+  return new Proxy(function () {}, { get: () => stub(), apply: () => stub() });
+}
+global.eagle = stub();
+
+const plugin = require("./plugin");
+
+const tweet = {
+  extractor: "twitter",
+  id: "1789000000000000000",
+  authorId: "44196397",
+  authorScreenName: "nyako_cake",
+  authorName: "Nyako",
+  description: "今日份的猫 https://t.co/abc 好可爱",
+  title: "今日份的猫 好可爱 - @nyako_cake",
+};
+
+// 默认任何字段都不勾：沿用适配器标题
+assert.strictEqual(plugin.buildImportName(tweet), tweet.title);
+
+// 勾选后按默认顺序拼名：默认是用户名在正文之前
+plugin.setTwitterNamePref("screenName", true);
+plugin.setTwitterNamePref("text", true);
+assert.strictEqual(plugin.buildImportName(tweet), "@nyako_cake - 今日份的猫 好可爱");
+
+// 把正文上移一格，顺序立刻生效（正文到用户名之前）
+assert.deepStrictEqual(plugin.moveTwitterNameField("text", "up"), ["authorId", "tweetId", "text", "screenName", "name"]);
+assert.strictEqual(plugin.buildImportName(tweet), "今日份的猫 好可爱 - @nyako_cake");
+assert.deepStrictEqual(plugin.moveTwitterNameField("screenName", "down"), ["authorId", "tweetId", "text", "name", "screenName"]);
+plugin.setTwitterNamePref("name", true);
+assert.strictEqual(plugin.buildImportName(tweet), "今日份的猫 好可爱 - Nyako - @nyako_cake");
+
+// 顺序越界不生效，返回 null 且不改动已保存的顺序
+assert.strictEqual(plugin.moveTwitterNameField("authorId", "up"), null);
+assert.strictEqual(plugin.moveTwitterNameField("screenName", "down"), null);
+
+// 多图：同一份元信息按 (i/N) 区分
+const multi = [1, 2].map((index) => plugin.buildImportName(tweet, { index, total: 2 }));
+assert.deepStrictEqual(multi, ["今日份的猫 好可爱 - Nyako - @nyako_cake (1/2)", "今日份的猫 好可爱 - Nyako - @nyako_cake (2/2)"]);
+
+// 非推特站点只追加序号
+assert.strictEqual(
+  plugin.buildImportName({ extractor: "youtube", title: "YouTube 视频" }, { index: 1, total: 2 }),
+  "YouTube 视频 (1/2)"
+);
+
+// 写坏的顺序（重复项、未知字段）读取时被校正，不会把字段弄丢
+global.localStorage.setItem(
+  "eagle-video-downloader.twitterName",
+  JSON.stringify({ text: true, order: ["screenName", "screenName", "bogus"] })
+);
+assert.deepStrictEqual(plugin.getTwitterNamePrefs().order, ["screenName", "authorId", "tweetId", "text", "name"]);
+
+console.log("twitter-name: plugin import name and order checks passed");
