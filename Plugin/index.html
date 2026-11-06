@@ -1137,8 +1137,9 @@
       display: flex;
       align-items: stretch;
       /* 列与竖分隔线之间、左右两侧与卡片边框之间留出同样宽的空隙 */
-      gap: 14px;
-      margin: 0 -12px;
+      --cols-gap: 14px;
+      gap: var(--cols-gap);
+      margin: 0 -15px;
       padding: 0 6px;
       width: calc(100% + 24px);
     }
@@ -1152,11 +1153,12 @@
       gap: 6px;
     }
 
-    /* 两条竖分隔线用同一套规则，粗细都是 1px、上下都贴齐同一个列高，长短保持一致 */
+    /* 两条竖分隔线用同一套规则，粗细都是 1px、上下都贴齐同一个列高，长短保持一致；
+       左移半个列间距，让线正好落在空隙正中，左右两侧的距离一样 */
     .setting-check-group + .setting-check-group::before {
       content: "";
       position: absolute;
-      left: -3px;
+      left: calc(var(--cols-gap) / -2);
       top: 0;
       bottom: 0;
       width: 1px;
