@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.12.0)
+## What's New (3.2.0 - 3.12.1)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -61,7 +61,7 @@ Main changes in this branch compared to upstream 3.0.0.
 - The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
 - The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
 - Twitter info rules: the "Twitter Info Rules" card on the same tab is laid out as three columns - "Name", "Annotation" and "Tags" from left to right - which build the imported item name, its annotation and its tags respectively, each offering the same five fields: Twitter ID (author numeric ID), Tweet ID, username (@handle), text and full name
-- The three columns are split by vertical divider lines and the whole rule block sits on a deeper rounded panel, so it reads apart from the rest of the card
+- The three columns are split by vertical divider lines and share the card background, with no tinted panel or frame around the block
 - Each row has move-up/move-down buttons and the three columns keep their own selection and order; name and annotation join fields with " - ", and the name column's order is the filename order
 - With nothing selected the name keeps "tweet text - @handle", is truncated past 150 characters and has illegal filename characters replaced
 - Distinguish multiple files: the switch inside the Twitter card decides whether " (1/N)" is appended when one tweet yields several images or videos; the Xiaohongshu card has the same switch for a note with several files. Both default to on, and turning one off makes the files share the name
