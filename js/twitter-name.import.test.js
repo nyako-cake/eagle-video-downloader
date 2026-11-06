@@ -83,4 +83,33 @@ global.localStorage.setItem(
 );
 assert.deepStrictEqual(plugin.getTwitterNamePrefs().order, ["screenName", "authorId", "tweetId", "text", "name"]);
 
+// ---------------- 注释规则 ----------------
+
+// 默认一项都不勾：注释仍是推文正文原文（含 t.co 链接，和旧行为一致）
+assert.strictEqual(plugin.buildImportAnnotation(tweet), "今日份的猫 https://t.co/abc 好可爱");
+
+// 勾选后按注释规则拼接，不影响已保存的名字规则
+plugin.setTwitterAnnotationPref("text", true);
+plugin.setTwitterAnnotationPref("screenName", true);
+assert.strictEqual(plugin.buildImportAnnotation(tweet), "@nyako_cake - 今日份的猫 好可爱");
+assert.strictEqual(plugin.getTwitterNamePrefs().text, true);
+
+// 注释与命名各存各的顺序
+plugin.moveTwitterAnnotationField("text", "up");
+assert.strictEqual(plugin.buildImportAnnotation(tweet), "今日份的猫 好可爱 - @nyako_cake");
+assert.strictEqual(plugin.getTwitterNamePrefs().order.join(","), "screenName,authorId,tweetId,text,name");
+
+// 注释越界同样返回 null
+assert.strictEqual(plugin.moveTwitterAnnotationField("authorId", "up"), null);
+
+// 非推特来源不受注释规则影响，仍写推文正文（description）
+assert.strictEqual(
+  plugin.buildImportAnnotation({ extractor: "youtube", description: "视频简介", title: "标题" }),
+  "视频简介"
+);
+
+// 没有 description 时不会写空注释：仍由勾选到的字段拼出内容
+assert.strictEqual(plugin.buildImportAnnotation({ extractor: "twitter", authorScreenName: "nyako_cake" }), "@nyako_cake");
+
+console.log("twitter-name: plugin annotation checks passed");
 console.log("twitter-name: plugin import name and order checks passed");

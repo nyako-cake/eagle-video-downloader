@@ -1696,6 +1696,68 @@
                 </div>
                 <p class="setting-note" id="twNameNote">Fields are joined with " - " in the order you arrange; illegal filename characters are replaced; several images or videos in one tweet get " (1/N)" appended.</p>
               </div>
+
+              <div class="settings-card">
+                <div class="settings-section-title" id="twAnTitle">Twitter Annotation Rules</div>
+                <div class="setting-row setting-row-column">
+                  <div class="setting-info">
+                    <span id="twAnHint" class="setting-desc">Pick the tweet fields used to build the imported item annotation, and use the arrows to set their order. Nothing selected keeps the plain tweet text.</span>
+                  </div>
+                  <div id="twAnnotationFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                    <div class="setting-check-row no-drag" data-field="authorId">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twAnAuthorId" />
+                        <span id="twAnAuthorIdLabel">Twitter ID (author numeric ID)</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="tweetId">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twAnTweetId" />
+                        <span id="twAnTweetIdLabel">Tweet ID</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="screenName">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twAnScreenName" />
+                        <span id="twAnScreenNameLabel">Username (@handle)</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="text">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twAnText" />
+                        <span id="twAnTextLabel">Tweet text</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                    <div class="setting-check-row no-drag" data-field="name">
+                      <label class="setting-check no-drag">
+                        <input type="checkbox" id="twAnFullName" />
+                        <span id="twAnFullNameLabel">Full name</span>
+                      </label>
+                      <div class="setting-order-actions no-drag">
+                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="setting-note" id="twAnNote">Annotation is joined with " - " in the order you arrange. Checking any field replaces the plain tweet text, so check "Tweet text" to keep it; up to 5000 characters.</p>
+              </div>
             </div>
 
             <!-- Accounts Panel -->

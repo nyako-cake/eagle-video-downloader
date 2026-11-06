@@ -52,6 +52,18 @@ function normalizeOrder(order) {
 /** 拼接后的总长度上限 */
 const NAME_MAX_LENGTH = 150;
 
+/** 注释里各字段的长度上限：正文交给总长度兜底（0 表示不单独截断） */
+const ANNOTATION_FIELD_MAX_LENGTH = {
+  authorId: 40,
+  tweetId: 40,
+  screenName: 40,
+  name: 60,
+  text: 0,
+};
+
+/** 注释总长度上限，与 Eagle 注释上限保持一致 */
+const ANNOTATION_MAX_LENGTH = 5000;
+
 function getDefaultPrefs() {
   return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
 }
@@ -92,17 +104,42 @@ function sanitizeName(value) {
  * 从元信息里取五个字段的可写入值。
  * 视频走 yt-dlp 兜底时元信息只有 uploader / uploader_id，这里一并兼容。
  * @param {Object} metadata
+ * @param {Object} [limits] 各字段长度上限，默认按命名规则
  */
-function fieldValues(metadata) {
+function fieldValues(metadata, limits) {
   const meta = metadata || {};
+  const max = limits || FIELD_MAX_LENGTH;
   const screenName = String(meta.authorScreenName || meta.uploader_id || "").replace(/^@+/, "");
   return {
-    authorId: cleanValue(meta.authorId, FIELD_MAX_LENGTH.authorId),
-    tweetId: cleanValue(meta.id, FIELD_MAX_LENGTH.tweetId),
-    screenName: screenName ? "@" + cleanValue(screenName, FIELD_MAX_LENGTH.screenName) : "",
-    name: cleanValue(meta.authorName || meta.uploader, FIELD_MAX_LENGTH.name),
-    text: cleanValue(meta.description, FIELD_MAX_LENGTH.text),
+    authorId: cleanValue(meta.authorId, max.authorId),
+    tweetId: cleanValue(meta.id, max.tweetId),
+    screenName: screenName ? "@" + cleanValue(screenName, max.screenName) : "",
+    name: cleanValue(meta.authorName || meta.uploader, max.name),
+    text: cleanValue(meta.description, max.text),
   };
+}
+
+/**
+ * 按勾选状态与顺序拼字段，供素材名与注释共用
+ * @param {Object} metadata
+ * @param {Object} prefs
+ * @param {Object} limits 各字段长度上限
+ * @param {number} maxLength 拼接后的总长度上限
+ * @param {(value: string) => string} [transform] 拼接后的额外处理，如清理文件名非法字符
+ * @returns {string}
+ */
+function composeFields(metadata, prefs, limits, maxLength, transform) {
+  const enabled = Object.assign(getDefaultPrefs(), prefs || {});
+  const values = fieldValues(metadata, limits);
+  const parts = [];
+  for (const field of normalizeOrder(enabled.order)) {
+    if (!enabled[field]) continue;
+    const value = values[field];
+    if (value) parts.push(value);
+  }
+  if (!parts.length) return "";
+  const joined = transform ? transform(parts.join(" - ")) : parts.join(" - ");
+  return joined.length > maxLength ? joined.slice(0, maxLength).trimEnd() : joined;
 }
 
 /**
@@ -112,17 +149,17 @@ function fieldValues(metadata) {
  * @returns {string} 空串表示未勾选任何字段，调用方应回落到默认标题
  */
 function buildTwitterName(metadata, prefs) {
-  const enabled = Object.assign(getDefaultPrefs(), prefs || {});
-  const values = fieldValues(metadata);
-  const parts = [];
-  for (const field of normalizeOrder(enabled.order)) {
-    if (!enabled[field]) continue;
-    const value = values[field];
-    if (value) parts.push(value);
-  }
-  if (!parts.length) return "";
-  const joined = sanitizeName(parts.join(" - "));
-  return joined.length > NAME_MAX_LENGTH ? joined.slice(0, NAME_MAX_LENGTH).trimEnd() : joined;
+  return composeFields(metadata, prefs, FIELD_MAX_LENGTH, NAME_MAX_LENGTH, sanitizeName);
+}
+
+/**
+ * 生成推特素材注释，规则与命名一致，但正文不按文件名长度收紧，且不清理文件名非法字符
+ * @param {Object} metadata
+ * @param {Object} prefs
+ * @returns {string} 空串表示未勾选任何字段，调用方应回落到推文正文
+ */
+function buildTwitterAnnotation(metadata, prefs) {
+  return composeFields(metadata, prefs, ANNOTATION_FIELD_MAX_LENGTH, ANNOTATION_MAX_LENGTH);
 }
 
 /**
@@ -187,10 +224,13 @@ module.exports = {
   DEFAULT_ORDER,
   FIELD_MAX_LENGTH,
   NAME_MAX_LENGTH,
+  ANNOTATION_FIELD_MAX_LENGTH,
+  ANNOTATION_MAX_LENGTH,
   getDefaultPrefs,
   normalizeOrder,
   moveInOrder,
   buildTwitterName,
+  buildTwitterAnnotation,
   appendPartSuffix,
   composeImportName,
   cleanValue,

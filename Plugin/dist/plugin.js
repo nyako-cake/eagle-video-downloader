@@ -6102,6 +6102,14 @@ var require_twitter_name = __commonJS({
       return result;
     }
     var NAME_MAX_LENGTH = 150;
+    var ANNOTATION_FIELD_MAX_LENGTH = {
+      authorId: 40,
+      tweetId: 40,
+      screenName: 40,
+      name: 60,
+      text: 0
+    };
+    var ANNOTATION_MAX_LENGTH = 5e3;
     function getDefaultPrefs() {
       return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
     }
@@ -6117,20 +6125,21 @@ var require_twitter_name = __commonJS({
     function sanitizeName(value) {
       return String(value == null ? "" : value).replace(/[\\/:*?"<>|]/g, " ").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").replace(/^[\s.]+|[\s.]+$/g, "");
     }
-    function fieldValues(metadata) {
+    function fieldValues(metadata, limits) {
       const meta = metadata || {};
+      const max = limits || FIELD_MAX_LENGTH;
       const screenName = String(meta.authorScreenName || meta.uploader_id || "").replace(/^@+/, "");
       return {
-        authorId: cleanValue(meta.authorId, FIELD_MAX_LENGTH.authorId),
-        tweetId: cleanValue(meta.id, FIELD_MAX_LENGTH.tweetId),
-        screenName: screenName ? "@" + cleanValue(screenName, FIELD_MAX_LENGTH.screenName) : "",
-        name: cleanValue(meta.authorName || meta.uploader, FIELD_MAX_LENGTH.name),
-        text: cleanValue(meta.description, FIELD_MAX_LENGTH.text)
+        authorId: cleanValue(meta.authorId, max.authorId),
+        tweetId: cleanValue(meta.id, max.tweetId),
+        screenName: screenName ? "@" + cleanValue(screenName, max.screenName) : "",
+        name: cleanValue(meta.authorName || meta.uploader, max.name),
+        text: cleanValue(meta.description, max.text)
       };
     }
-    function buildTwitterName(metadata, prefs) {
+    function composeFields(metadata, prefs, limits, maxLength, transform) {
       const enabled = Object.assign(getDefaultPrefs(), prefs || {});
-      const values = fieldValues(metadata);
+      const values = fieldValues(metadata, limits);
       const parts = [];
       for (const field of normalizeOrder(enabled.order)) {
         if (!enabled[field])
@@ -6141,8 +6150,14 @@ var require_twitter_name = __commonJS({
       }
       if (!parts.length)
         return "";
-      const joined = sanitizeName(parts.join(" - "));
-      return joined.length > NAME_MAX_LENGTH ? joined.slice(0, NAME_MAX_LENGTH).trimEnd() : joined;
+      const joined = transform ? transform(parts.join(" - ")) : parts.join(" - ");
+      return joined.length > maxLength ? joined.slice(0, maxLength).trimEnd() : joined;
+    }
+    function buildTwitterName(metadata, prefs) {
+      return composeFields(metadata, prefs, FIELD_MAX_LENGTH, NAME_MAX_LENGTH, sanitizeName);
+    }
+    function buildTwitterAnnotation(metadata, prefs) {
+      return composeFields(metadata, prefs, ANNOTATION_FIELD_MAX_LENGTH, ANNOTATION_MAX_LENGTH);
     }
     function appendPartSuffix(name, index, total, limit) {
       const idx = Number(index) || 0;
@@ -6179,10 +6194,13 @@ var require_twitter_name = __commonJS({
       DEFAULT_ORDER,
       FIELD_MAX_LENGTH,
       NAME_MAX_LENGTH,
+      ANNOTATION_FIELD_MAX_LENGTH,
+      ANNOTATION_MAX_LENGTH,
       getDefaultPrefs,
       normalizeOrder,
       moveInOrder,
       buildTwitterName,
+      buildTwitterAnnotation,
       appendPartSuffix,
       composeImportName,
       cleanValue,
@@ -6629,7 +6647,7 @@ var require_ui = __commonJS({
       el.style.height = "auto";
       el.style.height = Math.max(38, el.scrollHeight) + "px";
     }
-    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
       const tabBtnTags = document.getElementById("tabBtnTags");
@@ -6646,12 +6664,22 @@ var require_ui = __commonJS({
       const twNameTitle = document.getElementById("twNameTitle");
       const twNameHint = document.getElementById("twNameHint");
       const twNameNote = document.getElementById("twNameNote");
+      const twAnTitle = document.getElementById("twAnTitle");
+      const twAnHint = document.getElementById("twAnHint");
+      const twAnNote = document.getElementById("twAnNote");
       const twitterNameFields = {
         authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
         tweetId: { box: "twNameTweetId", label: "twNameTweetIdLabel" },
         screenName: { box: "twNameScreenName", label: "twNameScreenNameLabel" },
         text: { box: "twNameText", label: "twNameTextLabel" },
         name: { box: "twNameFullName", label: "twNameFullNameLabel" }
+      };
+      const twitterAnnotationFields = {
+        authorId: { box: "twAnAuthorId", label: "twAnAuthorIdLabel" },
+        tweetId: { box: "twAnTweetId", label: "twAnTweetIdLabel" },
+        screenName: { box: "twAnScreenName", label: "twAnScreenNameLabel" },
+        text: { box: "twAnText", label: "twAnTextLabel" },
+        name: { box: "twAnFullName", label: "twAnFullNameLabel" }
       };
       const maxResLabel = document.getElementById("maxResolutionLabel");
       const maxResHint = document.getElementById("maxResolutionHint");
@@ -6708,6 +6736,22 @@ var require_ui = __commonJS({
           label.textContent = i18next.t(`deps.${ids.label}`);
       }
       applyTwitterNameOrder(namePrefs.order);
+      if (twAnTitle)
+        twAnTitle.textContent = i18next.t("deps.twAnTitle");
+      if (twAnHint)
+        twAnHint.textContent = i18next.t("deps.twAnHint");
+      if (twAnNote)
+        twAnNote.textContent = i18next.t("deps.twAnNote");
+      const annotationPrefs = Object.assign(twitterName2.getDefaultPrefs(), twitterAnnotationPref || {});
+      for (const [field, ids] of Object.entries(twitterAnnotationFields)) {
+        const box = document.getElementById(ids.box);
+        if (box)
+          box.checked = annotationPrefs[field] === true;
+        const label = document.getElementById(ids.label);
+        if (label)
+          label.textContent = i18next.t(`deps.${ids.label}`);
+      }
+      applyTwitterAnnotationOrder(annotationPrefs.order);
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -7001,8 +7045,8 @@ var require_ui = __commonJS({
           break;
       }
     }
-    function applyTwitterNameOrder(order) {
-      const container = document.getElementById("twNameFields");
+    function applyFieldOrder(containerId, order) {
+      const container = document.getElementById(containerId);
       if (!container)
         return;
       for (const field of twitterName2.normalizeOrder(order)) {
@@ -7019,6 +7063,12 @@ var require_ui = __commonJS({
         if (down)
           down.disabled = index === rows.length - 1;
       });
+    }
+    function applyTwitterNameOrder(order) {
+      applyFieldOrder("twNameFields", order);
+    }
+    function applyTwitterAnnotationOrder(order) {
+      applyFieldOrder("twAnnotationFields", order);
     }
     module2.exports = {
       updateTheme,
@@ -7038,6 +7088,7 @@ var require_ui = __commonJS({
       switchSubpageTab,
       autoGrowTextarea,
       applyTwitterNameOrder,
+      applyTwitterAnnotationOrder,
       refreshAccountFields,
       applyIntervalSelect,
       getIntervalChoice,
@@ -7183,6 +7234,14 @@ var require_en = __commonJS({
         twNameTextLabel: "Tweet text",
         twNameFullNameLabel: "Full name",
         twNameNote: 'Fields are joined with " - " in the order you arrange; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, " (1/N)" is appended to keep the names unique.',
+        twAnTitle: "Twitter Annotation Rules",
+        twAnHint: "Pick the tweet fields used to build the imported item annotation, and use the arrows to set their order. With nothing selected the annotation keeps the plain tweet text.",
+        twAnAuthorIdLabel: "Twitter ID (author numeric ID)",
+        twAnTweetIdLabel: "Tweet ID",
+        twAnScreenNameLabel: "Username (@handle)",
+        twAnTextLabel: "Tweet text",
+        twAnFullNameLabel: "Full name",
+        twAnNote: 'Annotation is joined with " - " in the order you arrange and truncated past 5000 characters. Checking any field replaces the plain tweet text, so check "Tweet text" if you want to keep it.',
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7394,6 +7453,14 @@ var require_zh_CN = __commonJS({
         twNameTextLabel: "\u63A8\u6587\u6B63\u6587",
         twNameFullNameLabel: "\u63A8\u7279\u5168\u540D",
         twNameNote: "\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
+        twAnTitle: "\u63A8\u7279\u6CE8\u91CA\u89C4\u5219",
+        twAnHint: "\u52FE\u9009\u7528\u4E8E\u62FC\u63A5\u5BFC\u5165\u7D20\u6750\u6CE8\u91CA\u7684\u63A8\u6587\u5B57\u6BB5\uFF0C\u5E76\u7528\u6BCF\u884C\u7684\u7BAD\u5934\u8C03\u6574\u62FC\u63A5\u987A\u5E8F\uFF1B\u4E00\u9879\u90FD\u4E0D\u52FE\u65F6\u6CE8\u91CA\u6CBF\u7528\u63A8\u6587\u6B63\u6587\u3002",
+        twAnAuthorIdLabel: "\u63A8\u7279 ID\uFF08\u4F5C\u8005\u6570\u5B57 ID\uFF09",
+        twAnTweetIdLabel: "\u63A8\u6587 ID",
+        twAnScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
+        twAnTextLabel: "\u63A8\u6587\u6B63\u6587",
+        twAnFullNameLabel: "\u63A8\u7279\u5168\u540D",
+        twAnNote: "\u6CE8\u91CA\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 5000 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u52FE\u9009\u4EFB\u610F\u5B57\u6BB5\u540E\u6CE8\u91CA\u53EA\u7531\u52FE\u9009\u7684\u5B57\u6BB5\u7EC4\u6210\uFF0C\u4E0D\u518D\u81EA\u52A8\u5E26\u63A8\u6587\u6B63\u6587\uFF0C\u60F3\u4FDD\u7559\u6B63\u6587\u8BF7\u52FE\u9009\u300C\u63A8\u6587\u6B63\u6587\u300D\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7512,6 +7579,13 @@ function buildImportName(metadata, part) {
     i18next2.t("error.downloadedVideo")
   );
 }
+function buildImportAnnotation(metadata) {
+  const isTwitter = String(metadata.extractor || "").toLowerCase() === "twitter";
+  const composed = isTwitter ? twitterName.buildTwitterAnnotation(metadata, getTwitterAnnotationPrefs()) : "";
+  if (composed)
+    return composed.slice(0, twitterName.ANNOTATION_MAX_LENGTH);
+  return metadata.description ? metadata.description.slice(0, 5e3) : "";
+}
 async function importToEagle(videoPath, metadata, sourceUrl, part) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next2.t("error.eagleApiNotAvailable"));
@@ -7521,7 +7595,7 @@ async function importToEagle(videoPath, metadata, sourceUrl, part) {
     name: buildImportName(metadata, part),
     website: sourceUrl || void 0,
     tags,
-    annotation: metadata.description ? metadata.description.slice(0, 5e3) : ""
+    annotation: buildImportAnnotation(metadata)
   };
   try {
     return await eagle.item.addFromPath(videoPath, importOptions);
@@ -7549,46 +7623,79 @@ function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 var TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
+var TWITTER_ANNOTATION_KEY = "eagle-video-downloader.twitterAnnotation";
+function createFieldPrefsStore(storageKey) {
+  function get() {
+    const raw = localStorage.getItem(storageKey);
+    let saved = null;
+    if (raw) {
+      try {
+        saved = JSON.parse(raw);
+      } catch (e) {
+        saved = null;
+      }
+    }
+    const prefs = twitterName.getDefaultPrefs();
+    if (saved && typeof saved === "object") {
+      for (const field of twitterName.FIELD_ORDER) {
+        if (typeof saved[field] === "boolean")
+          prefs[field] = saved[field];
+      }
+      if (Array.isArray(saved.order))
+        prefs.order = twitterName.normalizeOrder(saved.order);
+    }
+    return prefs;
+  }
+  function save(prefs) {
+    localStorage.setItem(storageKey, JSON.stringify(prefs));
+  }
+  function setField(field, value) {
+    if (!twitterName.FIELD_ORDER.includes(field))
+      return;
+    const prefs = get();
+    prefs[field] = value === true;
+    save(prefs);
+  }
+  function setOrder(order) {
+    const prefs = get();
+    prefs.order = twitterName.normalizeOrder(order);
+    save(prefs);
+    return prefs.order;
+  }
+  function move(field, direction) {
+    const prefs = get();
+    const moved = twitterName.moveInOrder(prefs.order, field, direction);
+    if (!moved)
+      return null;
+    return setOrder(moved);
+  }
+  return { get, setField, setOrder, move };
+}
+var twitterNamePrefsStore = createFieldPrefsStore(TWITTER_NAME_KEY);
+var twitterAnnotationPrefsStore = createFieldPrefsStore(TWITTER_ANNOTATION_KEY);
 function getTwitterNamePrefs() {
-  const raw = localStorage.getItem(TWITTER_NAME_KEY);
-  let saved = null;
-  if (raw) {
-    try {
-      saved = JSON.parse(raw);
-    } catch (e) {
-      saved = null;
-    }
-  }
-  const prefs = twitterName.getDefaultPrefs();
-  if (saved && typeof saved === "object") {
-    for (const field of twitterName.FIELD_ORDER) {
-      if (typeof saved[field] === "boolean")
-        prefs[field] = saved[field];
-    }
-    if (Array.isArray(saved.order))
-      prefs.order = twitterName.normalizeOrder(saved.order);
-  }
-  return prefs;
+  return twitterNamePrefsStore.get();
 }
 function setTwitterNamePref(field, value) {
-  if (!twitterName.FIELD_ORDER.includes(field))
-    return;
-  const prefs = getTwitterNamePrefs();
-  prefs[field] = value === true;
-  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+  twitterNamePrefsStore.setField(field, value);
 }
 function setTwitterNameOrder(order) {
-  const prefs = getTwitterNamePrefs();
-  prefs.order = twitterName.normalizeOrder(order);
-  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
-  return prefs.order;
+  return twitterNamePrefsStore.setOrder(order);
 }
 function moveTwitterNameField(field, direction) {
-  const prefs = getTwitterNamePrefs();
-  const moved = twitterName.moveInOrder(prefs.order, field, direction);
-  if (!moved)
-    return null;
-  return setTwitterNameOrder(moved);
+  return twitterNamePrefsStore.move(field, direction);
+}
+function getTwitterAnnotationPrefs() {
+  return twitterAnnotationPrefsStore.get();
+}
+function setTwitterAnnotationPref(field, value) {
+  twitterAnnotationPrefsStore.setField(field, value);
+}
+function setTwitterAnnotationOrder(order) {
+  return twitterAnnotationPrefsStore.setOrder(order);
+}
+function moveTwitterAnnotationField(field, direction) {
+  return twitterAnnotationPrefsStore.move(field, direction);
 }
 function getMaxResolutionPref() {
   return localStorage.getItem(MAX_RESOLUTION_KEY) || "auto";
@@ -7788,6 +7895,37 @@ function setupEventListeners() {
       const order = moveTwitterNameField(field, direction);
       if (order)
         ui.applyTwitterNameOrder(order);
+    });
+  }
+  const twitterAnnotationToggles = {
+    authorId: "twAnAuthorId",
+    tweetId: "twAnTweetId",
+    screenName: "twAnScreenName",
+    text: "twAnText",
+    name: "twAnFullName"
+  };
+  for (const [field, id] of Object.entries(twitterAnnotationToggles)) {
+    const box = document.getElementById(id);
+    if (box) {
+      box.addEventListener("change", (e) => {
+        setTwitterAnnotationPref(field, e.target.checked);
+      });
+    }
+  }
+  const twAnnotationFields = document.getElementById("twAnnotationFields");
+  if (twAnnotationFields) {
+    twAnnotationFields.addEventListener("click", (e) => {
+      const button = e.target.closest(".setting-order-btn");
+      if (!button)
+        return;
+      const row = button.closest(".setting-check-row");
+      const field = row && row.dataset.field;
+      if (!field)
+        return;
+      const direction = button.dataset.move === "up" ? "up" : "down";
+      const order = moveTwitterAnnotationField(field, direction);
+      if (order)
+        ui.applyTwitterAnnotationOrder(order);
     });
   }
   const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -8011,6 +8149,7 @@ async function initializeBinaries() {
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
+    twitterAnnotationPref: getTwitterAnnotationPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()
@@ -8250,6 +8389,7 @@ function openDepsPage() {
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
+    twitterAnnotationPref: getTwitterAnnotationPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()
@@ -8635,8 +8775,13 @@ function setupPinButton() {
 module.exports = {
   buildImportTags,
   buildImportName,
+  buildImportAnnotation,
   getTwitterNamePrefs,
   setTwitterNamePref,
   setTwitterNameOrder,
-  moveTwitterNameField
+  moveTwitterNameField,
+  getTwitterAnnotationPrefs,
+  setTwitterAnnotationPref,
+  setTwitterAnnotationOrder,
+  moveTwitterAnnotationField
 };

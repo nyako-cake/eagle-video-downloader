@@ -534,8 +534,9 @@ function autoGrowTextarea(el) {
  * @param {boolean} opts.autoAddSourcePref - 是否自动设置 Eagle 数据来源
  * @param {boolean} opts.xhsTagsPref - 小红书下载是否写入话题标签
  * @param {Object} opts.twitterNamePref - 推特素材命名的勾选状态
+ * @param {Object} opts.twitterAnnotationPref - 推特素材注释的勾选状态
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnTags = document.getElementById("tabBtnTags");
@@ -552,12 +553,22 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const twNameTitle = document.getElementById("twNameTitle");
   const twNameHint = document.getElementById("twNameHint");
   const twNameNote = document.getElementById("twNameNote");
+  const twAnTitle = document.getElementById("twAnTitle");
+  const twAnHint = document.getElementById("twAnHint");
+  const twAnNote = document.getElementById("twAnNote");
   const twitterNameFields = {
     authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
     tweetId: { box: "twNameTweetId", label: "twNameTweetIdLabel" },
     screenName: { box: "twNameScreenName", label: "twNameScreenNameLabel" },
     text: { box: "twNameText", label: "twNameTextLabel" },
     name: { box: "twNameFullName", label: "twNameFullNameLabel" },
+  };
+  const twitterAnnotationFields = {
+    authorId: { box: "twAnAuthorId", label: "twAnAuthorIdLabel" },
+    tweetId: { box: "twAnTweetId", label: "twAnTweetIdLabel" },
+    screenName: { box: "twAnScreenName", label: "twAnScreenNameLabel" },
+    text: { box: "twAnText", label: "twAnTextLabel" },
+    name: { box: "twAnFullName", label: "twAnFullNameLabel" },
   };
   const maxResLabel = document.getElementById("maxResolutionLabel");
   const maxResHint = document.getElementById("maxResolutionHint");
@@ -600,6 +611,18 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     if (label) label.textContent = i18next.t(`deps.${ids.label}`);
   }
   applyTwitterNameOrder(namePrefs.order);
+
+  if (twAnTitle) twAnTitle.textContent = i18next.t("deps.twAnTitle");
+  if (twAnHint) twAnHint.textContent = i18next.t("deps.twAnHint");
+  if (twAnNote) twAnNote.textContent = i18next.t("deps.twAnNote");
+  const annotationPrefs = Object.assign(twitterName.getDefaultPrefs(), twitterAnnotationPref || {});
+  for (const [field, ids] of Object.entries(twitterAnnotationFields)) {
+    const box = document.getElementById(ids.box);
+    if (box) box.checked = annotationPrefs[field] === true;
+    const label = document.getElementById(ids.label);
+    if (label) label.textContent = i18next.t(`deps.${ids.label}`);
+  }
+  applyTwitterAnnotationOrder(annotationPrefs.order);
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");
@@ -894,11 +917,12 @@ function updateFfmpegCard(state, data = {}) {
 }
 
 /**
- * 按保存的顺序重排推特命名字段行，并禁用首行的「上移」与末行的「下移」
+ * 按保存的顺序重排某个字段列表，并禁用首行的「上移」与末行的「下移」
+ * @param {string} containerId
  * @param {string[]} order
  */
-function applyTwitterNameOrder(order) {
-  const container = document.getElementById("twNameFields");
+function applyFieldOrder(containerId, order) {
+  const container = document.getElementById(containerId);
   if (!container) return;
   for (const field of twitterName.normalizeOrder(order)) {
     const row = container.querySelector(`.setting-check-row[data-field="${field}"]`);
@@ -911,6 +935,22 @@ function applyTwitterNameOrder(order) {
     if (up) up.disabled = index === 0;
     if (down) down.disabled = index === rows.length - 1;
   });
+}
+
+/**
+ * 命名规则的字段顺序
+ * @param {string[]} order
+ */
+function applyTwitterNameOrder(order) {
+  applyFieldOrder("twNameFields", order);
+}
+
+/**
+ * 注释规则的字段顺序
+ * @param {string[]} order
+ */
+function applyTwitterAnnotationOrder(order) {
+  applyFieldOrder("twAnnotationFields", order);
 }
 
 /**
@@ -936,6 +976,7 @@ module.exports = {
   switchSubpageTab,
   autoGrowTextarea,
   applyTwitterNameOrder,
+  applyTwitterAnnotationOrder,
   refreshAccountFields,
   applyIntervalSelect,
   getIntervalChoice,

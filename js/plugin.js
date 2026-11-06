@@ -57,6 +57,17 @@ function buildImportName(metadata, part) {
   );
 }
 
+/**
+ * 计算导入 Eagle 时使用的注释：
+ * 推特按注释规则的勾选字段拼接，未勾选任何字段时沿用推文正文。
+ */
+function buildImportAnnotation(metadata) {
+  const isTwitter = String(metadata.extractor || "").toLowerCase() === "twitter";
+  const composed = isTwitter ? twitterName.buildTwitterAnnotation(metadata, getTwitterAnnotationPrefs()) : "";
+  if (composed) return composed.slice(0, twitterName.ANNOTATION_MAX_LENGTH);
+  return metadata.description ? metadata.description.slice(0, 5000) : "";
+}
+
 async function importToEagle(videoPath, metadata, sourceUrl, part) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next.t("error.eagleApiNotAvailable"));
@@ -66,7 +77,7 @@ async function importToEagle(videoPath, metadata, sourceUrl, part) {
     name: buildImportName(metadata, part),
     website: sourceUrl || undefined,
     tags,
-    annotation: metadata.description ? metadata.description.slice(0, 5000) : "",
+    annotation: buildImportAnnotation(metadata),
   };
   try {
     return await eagle.item.addFromPath(videoPath, importOptions);
@@ -115,31 +126,72 @@ function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 
-// 推特素材命名的勾选状态与字段顺序（JSON：{ authorId, tweetId, screenName, text, name, order }）
+// 推特素材命名 / 注释的勾选状态与字段顺序（JSON：{ authorId, tweetId, screenName, text, name, order }）
 const TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
+const TWITTER_ANNOTATION_KEY = "eagle-video-downloader.twitterAnnotation";
+
+/**
+ * 为「五个字段 + 顺序」这类偏好造一组读写函数，命名规则与注释规则各用一个 key
+ * @param {string} storageKey
+ */
+function createFieldPrefsStore(storageKey) {
+  function get() {
+    const raw = localStorage.getItem(storageKey);
+    let saved = null;
+    if (raw) {
+      try {
+        saved = JSON.parse(raw);
+      } catch (e) {
+        saved = null;
+      }
+    }
+    const prefs = twitterName.getDefaultPrefs();
+    if (saved && typeof saved === "object") {
+      for (const field of twitterName.FIELD_ORDER) {
+        if (typeof saved[field] === "boolean") prefs[field] = saved[field];
+      }
+      if (Array.isArray(saved.order)) prefs.order = twitterName.normalizeOrder(saved.order);
+    }
+    return prefs;
+  }
+
+  function save(prefs) {
+    localStorage.setItem(storageKey, JSON.stringify(prefs));
+  }
+
+  function setField(field, value) {
+    if (!twitterName.FIELD_ORDER.includes(field)) return;
+    const prefs = get();
+    prefs[field] = value === true;
+    save(prefs);
+  }
+
+  function setOrder(order) {
+    const prefs = get();
+    prefs.order = twitterName.normalizeOrder(order);
+    save(prefs);
+    return prefs.order;
+  }
+
+  function move(field, direction) {
+    const prefs = get();
+    const moved = twitterName.moveInOrder(prefs.order, field, direction);
+    if (!moved) return null;
+    return setOrder(moved);
+  }
+
+  return { get, setField, setOrder, move };
+}
+
+const twitterNamePrefsStore = createFieldPrefsStore(TWITTER_NAME_KEY);
+const twitterAnnotationPrefsStore = createFieldPrefsStore(TWITTER_ANNOTATION_KEY);
 
 /**
  * 获取推特素材命名的勾选状态与字段顺序，缺失的字段回落到默认值
  * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean, order: string[]}}
  */
 function getTwitterNamePrefs() {
-  const raw = localStorage.getItem(TWITTER_NAME_KEY);
-  let saved = null;
-  if (raw) {
-    try {
-      saved = JSON.parse(raw);
-    } catch (e) {
-      saved = null;
-    }
-  }
-  const prefs = twitterName.getDefaultPrefs();
-  if (saved && typeof saved === "object") {
-    for (const field of twitterName.FIELD_ORDER) {
-      if (typeof saved[field] === "boolean") prefs[field] = saved[field];
-    }
-    if (Array.isArray(saved.order)) prefs.order = twitterName.normalizeOrder(saved.order);
-  }
-  return prefs;
+  return twitterNamePrefsStore.get();
 }
 
 /**
@@ -148,35 +200,62 @@ function getTwitterNamePrefs() {
  * @param {boolean} value
  */
 function setTwitterNamePref(field, value) {
-  if (!twitterName.FIELD_ORDER.includes(field)) return;
-  const prefs = getTwitterNamePrefs();
-  prefs[field] = value === true;
-  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
+  twitterNamePrefsStore.setField(field, value);
 }
 
 /**
- * 保存字段拼接顺序，返回校正后的顺序
+ * 保存命名用的字段拼接顺序，返回校正后的顺序
  * @param {string[]} order
  * @returns {string[]}
  */
 function setTwitterNameOrder(order) {
-  const prefs = getTwitterNamePrefs();
-  prefs.order = twitterName.normalizeOrder(order);
-  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
-  return prefs.order;
+  return twitterNamePrefsStore.setOrder(order);
 }
 
 /**
- * 把某个字段上移或下移一格，返回新顺序（越界时返回 null）
+ * 把命名字段上移或下移一格，返回新顺序（越界时返回 null）
  * @param {string} field
  * @param {"up"|"down"} direction
  * @returns {string[]|null}
  */
 function moveTwitterNameField(field, direction) {
-  const prefs = getTwitterNamePrefs();
-  const moved = twitterName.moveInOrder(prefs.order, field, direction);
-  if (!moved) return null;
-  return setTwitterNameOrder(moved);
+  return twitterNamePrefsStore.move(field, direction);
+}
+
+/**
+ * 获取推特素材注释的勾选状态与字段顺序
+ * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean, order: string[]}}
+ */
+function getTwitterAnnotationPrefs() {
+  return twitterAnnotationPrefsStore.get();
+}
+
+/**
+ * 保存单个推特注释字段的勾选状态
+ * @param {string} field
+ * @param {boolean} value
+ */
+function setTwitterAnnotationPref(field, value) {
+  twitterAnnotationPrefsStore.setField(field, value);
+}
+
+/**
+ * 保存注释用的字段拼接顺序，返回校正后的顺序
+ * @param {string[]} order
+ * @returns {string[]}
+ */
+function setTwitterAnnotationOrder(order) {
+  return twitterAnnotationPrefsStore.setOrder(order);
+}
+
+/**
+ * 把注释字段上移或下移一格，返回新顺序（越界时返回 null）
+ * @param {string} field
+ * @param {"up"|"down"} direction
+ * @returns {string[]|null}
+ */
+function moveTwitterAnnotationField(field, direction) {
+  return twitterAnnotationPrefsStore.move(field, direction);
 }
 
 /**
@@ -435,6 +514,38 @@ function setupEventListeners() {
     });
   }
 
+  // 推特注释字段复选框
+  const twitterAnnotationToggles = {
+    authorId: "twAnAuthorId",
+    tweetId: "twAnTweetId",
+    screenName: "twAnScreenName",
+    text: "twAnText",
+    name: "twAnFullName",
+  };
+  for (const [field, id] of Object.entries(twitterAnnotationToggles)) {
+    const box = document.getElementById(id);
+    if (box) {
+      box.addEventListener("change", (e) => {
+        setTwitterAnnotationPref(field, e.target.checked);
+      });
+    }
+  }
+
+  // 推特注释字段顺序：上移 / 下移
+  const twAnnotationFields = document.getElementById("twAnnotationFields");
+  if (twAnnotationFields) {
+    twAnnotationFields.addEventListener("click", (e) => {
+      const button = e.target.closest(".setting-order-btn");
+      if (!button) return;
+      const row = button.closest(".setting-check-row");
+      const field = row && row.dataset.field;
+      if (!field) return;
+      const direction = button.dataset.move === "up" ? "up" : "down";
+      const order = moveTwitterAnnotationField(field, direction);
+      if (order) ui.applyTwitterAnnotationOrder(order);
+    });
+  }
+
   // 清晰度上限选择切换
   const maxResSelect = document.getElementById("maxResolutionSelect");
   if (maxResSelect) {
@@ -680,6 +791,7 @@ async function initializeBinaries() {
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
+        twitterAnnotationPref: getTwitterAnnotationPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -971,6 +1083,7 @@ function openDepsPage() {
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
+        twitterAnnotationPref: getTwitterAnnotationPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1408,9 +1521,14 @@ function setupPinButton() {
 module.exports = {
   buildImportTags,
   buildImportName,
+  buildImportAnnotation,
   getTwitterNamePrefs,
   setTwitterNamePref,
   setTwitterNameOrder,
   moveTwitterNameField,
+  getTwitterAnnotationPrefs,
+  setTwitterAnnotationPref,
+  setTwitterAnnotationOrder,
+  moveTwitterAnnotationField,
 };
 

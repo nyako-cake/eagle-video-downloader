@@ -1,6 +1,6 @@
 // node js/twitter-name.test.js
 const assert = require("assert");
-const { buildTwitterName, sanitizeName, appendPartSuffix, composeImportName, normalizeOrder, moveInOrder, getDefaultPrefs, FIELD_ORDER, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
+const { buildTwitterName, buildTwitterAnnotation, sanitizeName, appendPartSuffix, composeImportName, normalizeOrder, moveInOrder, getDefaultPrefs, FIELD_ORDER, FIELD_MAX_LENGTH, NAME_MAX_LENGTH, ANNOTATION_MAX_LENGTH } = require("./twitter-name");
 
 const tweetMeta = {
   authorId: "44196397",
@@ -140,5 +140,50 @@ assert.strictEqual(composeImportName(tweetMeta, { text: true }, { index: 0, tota
 
 // 没有任何可用的名字时回落到兜底文案
 assert.strictEqual(composeImportName({}, {}, null, "downloaded video"), "downloaded video");
+
+// ---------------- 注释规则 ----------------
+
+// 一项都不勾：返回空串，调用方回落到推文正文
+assert.strictEqual(buildTwitterAnnotation(tweetMeta), "");
+assert.strictEqual(buildTwitterAnnotation(tweetMeta, { order: ["text"] }), "");
+
+// 顺序按 prefs.order 走，与命名同一套规则
+assert.strictEqual(buildTwitterAnnotation(tweetMeta, { screenName: true, text: true }), "@nyako_cake - 今日份的猫 好可爱");
+assert.strictEqual(
+  buildTwitterAnnotation(tweetMeta, { screenName: true, text: true, order: ["text", "authorId", "tweetId", "name", "screenName"] }),
+  "今日份的猫 好可爱 - @nyako_cake"
+);
+
+// 注释不清理文件名非法字符：冒号与斜杠原样保留
+assert.strictEqual(
+  buildTwitterAnnotation({ ...tweetMeta, description: "A/B: C" }, { text: true }),
+  "A/B: C"
+);
+
+// 正文不再按文件名的 100 字收紧，120 字的正文在注释里完整保留
+const annotationLongText = "猫".repeat(120);
+assert.strictEqual(buildTwitterAnnotation({ description: annotationLongText }, { text: true }), annotationLongText);
+assert.strictEqual(buildTwitterName({ description: annotationLongText }, { text: true }).length, 100);
+
+// 正文不单独截断：4100 字的正文原样保留，不会被补省略号
+const veryLongText = "猫".repeat(4100);
+assert.strictEqual(buildTwitterAnnotation({ description: veryLongText }, { text: true }), veryLongText);
+
+// 超过注释总长上限（5000）时整体截断
+const overlongText = "猫".repeat(6000);
+assert.strictEqual(buildTwitterAnnotation({ description: overlongText }, { text: true }).length, ANNOTATION_MAX_LENGTH);
+
+// 多字段拼接超过注释上限（5000）时整体截断
+const hugeMeta = { authorId: "1".repeat(40), id: "2".repeat(40), authorScreenName: "s".repeat(38), authorName: "n".repeat(60), description: "猫".repeat(6000) };
+const huge = buildTwitterAnnotation(hugeMeta, { authorId: true, tweetId: true, screenName: true, text: true, name: true });
+assert.strictEqual(huge.length, ANNOTATION_MAX_LENGTH);
+
+// 元信息缺 authorId（yt-dlp 兜底路径）时跳过该字段
+assert.strictEqual(
+  buildTwitterAnnotation({ uploader: "Nyako", uploader_id: "nyako_cake", description: "hi", id: "1" }, { authorId: true, screenName: true, text: true }),
+  "@nyako_cake - hi"
+);
+
+console.log("twitter-name: buildTwitterAnnotation checks passed");
 
 console.log("twitter-name: buildTwitterName checks passed");
