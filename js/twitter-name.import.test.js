@@ -112,4 +112,40 @@ assert.strictEqual(
 assert.strictEqual(plugin.buildImportAnnotation({ extractor: "twitter", authorScreenName: "nyako_cake" }), "@nyako_cake");
 
 console.log("twitter-name: plugin annotation checks passed");
+
+// --------------- 标签规则 ----------------
+
+// 默认一项都不勾：推特素材仍只有站点标签
+assert.deepStrictEqual(plugin.buildImportTags(tweet), ["twitter"]);
+
+// 勾选后：站点标签在前，勾选的字段各自成为一条标签排在后面
+plugin.setTwitterTagsPref("screenName", true);
+plugin.setTwitterTagsPref("text", true);
+assert.deepStrictEqual(plugin.buildImportTags(tweet), ["twitter", "@nyako_cake", "今日份的猫 好可爱"]);
+
+// 标签顺序独立于命名 / 注释两套顺序，调整后立即生效
+assert.deepStrictEqual(plugin.moveTwitterTagsField("text", "up"), ["authorId", "tweetId", "text", "screenName", "name"]);
+assert.deepStrictEqual(plugin.buildImportTags(tweet), ["twitter", "今日份的猫 好可爱", "@nyako_cake"]);
+assert.strictEqual(plugin.getTwitterNamePrefs().order.join(","), "screenName,authorId,tweetId,text,name");
+assert.strictEqual(plugin.getTwitterAnnotationPrefs().order.join(","), "authorId,tweetId,text,screenName,name");
+
+// 与站点标签重名时不重复添加，大小写不敏感
+plugin.setTwitterTagsPref("authorId", true);
+assert.deepStrictEqual(plugin.buildImportTags({ ...tweet, tags: ["44196397"] }), ["44196397", "今日份的猫 好可爱", "@nyako_cake"]);
+assert.deepStrictEqual(plugin.buildImportTags({ ...tweet, tags: ["@NYAKO_CAKE"] }), ["@NYAKO_CAKE", "44196397", "今日份的猫 好可爱"]);
+
+// 标签越界调整返回 null
+assert.strictEqual(plugin.moveTwitterTagsField("authorId", "up"), null);
+
+// 总标签数不超过 30 个：站点标签 + 规则标签一起截断
+const manyTagMeta = { ...tweet, tags: Array.from({ length: 28 }, (_, i) => `site${i}`) };
+plugin.setTwitterTagsPref("tweetId", true);
+assert.strictEqual(plugin.buildImportTags(manyTagMeta).length, 30, "tags are capped at 30");
+
+// 非推特来源不受标签规则影响
+assert.deepStrictEqual(plugin.buildImportTags({ extractor: "youtube", title: "视频" }), ["youtube"]);
+assert.deepStrictEqual(plugin.buildImportTags({ extractor: "youtube", tags: ["#音乐"] }), ["音乐"]);
+
+console.log("twitter-name: plugin import tags checks passed");
+
 console.log("twitter-name: plugin import name and order checks passed");

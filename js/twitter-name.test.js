@@ -1,6 +1,6 @@
 // node js/twitter-name.test.js
 const assert = require("assert");
-const { buildTwitterName, buildTwitterAnnotation, sanitizeName, appendPartSuffix, composeImportName, normalizeOrder, moveInOrder, getDefaultPrefs, FIELD_ORDER, FIELD_MAX_LENGTH, NAME_MAX_LENGTH, ANNOTATION_MAX_LENGTH } = require("./twitter-name");
+const { buildTwitterName, buildTwitterAnnotation, buildTwitterTags, sanitizeName, appendPartSuffix, composeImportName, normalizeOrder, moveInOrder, getDefaultPrefs, FIELD_ORDER, FIELD_MAX_LENGTH, NAME_MAX_LENGTH, ANNOTATION_MAX_LENGTH, TAG_MAX_LENGTH } = require("./twitter-name");
 
 const tweetMeta = {
   authorId: "44196397",
@@ -185,5 +185,55 @@ assert.strictEqual(
 );
 
 console.log("twitter-name: buildTwitterAnnotation checks passed");
+
+// --------------- 标签规则 ---------------
+
+// 一项都不勾：返回空数组，调用方沿用原来的站点标签
+assert.deepStrictEqual(buildTwitterTags(tweetMeta), []);
+assert.deepStrictEqual(buildTwitterTags(tweetMeta, { order: ["text"] }), []);
+
+// 每个勾选的字段各自成为一条独立标签，不拼接成一条
+assert.deepStrictEqual(buildTwitterTags(tweetMeta, { screenName: true, text: true }), ["@nyako_cake", "今日份的猫 好可爱"]);
+
+// 五项全开：默认顺序 作者ID → 推文ID → 用户名 → 正文 → 全名
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { authorId: true, tweetId: true, screenName: true, text: true, name: true }),
+  ["44196397", "1789000000000000000", "@nyako_cake", "今日份的猫 好可爱", "Nyako"]
+);
+
+// 顺序按 prefs.order 走
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { screenName: true, text: true, order: ["text", "authorId", "tweetId", "name", "screenName"] }),
+  ["今日份的猫 好可爱", "@nyako_cake"],
+  "tag order follows the arranged order"
+);
+
+// 标签里不留 # 号：正文自带的话题标签去掉井号，避免在 Eagle 里被当成话题
+assert.deepStrictEqual(buildTwitterTags({ description: "#猫 #日常 好可爱" }, { text: true }), ["猫 日常 好可爱"]);
+
+// 同一条推文里大小写不同的重复值只保留一条
+assert.deepStrictEqual(
+  buildTwitterTags({ description: "#Nyako", authorName: "nyako" }, { text: true, name: true }),
+  ["Nyako"],
+  "duplicate tags are compared case-insensitively"
+);
+
+// 单条标签超过 100 字符截断并补省略号
+const longTagText = "猫".repeat(130);
+const longTag = buildTwitterTags({ description: longTagText }, { text: true })[0];
+assert.strictEqual(longTag.length, TAG_MAX_LENGTH);
+assert(longTag.endsWith("…"), "over-long tag ends with ellipsis");
+
+// 元信息缺 authorId（yt-dlp 兜底路径）时跳过该字段
+assert.deepStrictEqual(
+  buildTwitterTags({ uploader: "Nyako", uploader_id: "nyako_cake", description: "hi", id: "1789" }, { authorId: true, tweetId: true, screenName: true }),
+  ["1789", "@nyako_cake"],
+  "missing author id is skipped"
+);
+
+// 空元信息不产出任何标签
+assert.deepStrictEqual(buildTwitterTags(null, { text: true, name: true }), []);
+
+console.log("twitter-name: buildTwitterTags checks passed");
 
 console.log("twitter-name: buildTwitterName checks passed");

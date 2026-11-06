@@ -1132,11 +1132,11 @@
       cursor: default;
     }
 
-    /* 推特信息规则：名称与注释两列并排，各自独立排序 */
+    /* 推特信息规则：名称 / 注释 / 标签三列并排，各自独立排序 */
     .setting-check-columns {
       display: flex;
       align-items: flex-start;
-      gap: 14px;
+      gap: 6px;
       width: 100%;
     }
 
@@ -1169,8 +1169,8 @@
     .setting-check {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      font-size: 11.5px;
+      gap: 5px;
+      font-size: 10.5px;
       color: var(--fg1);
       cursor: pointer;
       user-select: none;
@@ -1178,8 +1178,8 @@
     }
 
     .setting-check input[type="checkbox"] {
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       accent-color: var(--brand);
       cursor: pointer;
     }
@@ -1188,10 +1188,10 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
       min-height: 22px;
-      padding: 1px 4px;
+      padding: 1px 1px;
       border-radius: 5px;
     }
 
@@ -1201,18 +1201,18 @@
 
     .setting-order-actions {
       display: flex;
-      gap: 3px;
+      gap: 1px;
       flex: 0 0 auto;
     }
 
     .setting-order-btn {
-      width: 20px;
-      height: 18px;
+      width: 15px;
+      height: 16px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1;
       color: var(--fg2);
       background: var(--bg-panel);
@@ -1662,7 +1662,7 @@
                 <div class="settings-section-title" id="twNameTitle">Twitter Info Rules</div>
                 <div class="setting-row setting-row-column">
                   <div class="setting-info">
-                    <span id="twNameHint" class="setting-desc">The left column builds the imported item name, the right column builds its annotation; each row's arrows set the order. With nothing selected the name keeps "tweet text - @handle" and the annotation keeps the plain tweet text.</span>
+                    <span id="twNameHint" class="setting-desc">The left column builds the item name, the middle one its annotation and the right one extra tags; each row's arrows set the order. With nothing selected the name keeps "tweet text - @handle" and the annotation keeps the plain tweet text.</span>
                   </div>
                   <div class="setting-check-columns no-drag">
                     <div class="setting-check-group no-drag">
@@ -1775,10 +1775,66 @@
                         </div>
                       </div>
                     </div>
+                    <div class="setting-check-group no-drag">
+                      <div class="setting-check-title" id="twTagColumnTitle">Tags</div>
+                      <div id="twTagFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                        <div class="setting-check-row no-drag" data-field="authorId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twTagAuthorId" />
+                            <span id="twTagAuthorIdLabel">Twitter ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="tweetId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twTagTweetId" />
+                            <span id="twTagTweetIdLabel">Tweet ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="screenName">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twTagScreenName" />
+                            <span id="twTagScreenNameLabel">Username</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="text">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twTagText" />
+                            <span id="twTagTextLabel">Text</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="name">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twTagFullName" />
+                            <span id="twTagFullNameLabel">Full name</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <p class="setting-note" id="twNameNote">Name: fields joined with " - " in the order you arrange, illegal filename characters replaced, " (1/N)" appended when one tweet yields several files.</p>
                 <p class="setting-note" id="twAnNote">Annotation: joined with " - " in the order you arrange, up to 5000 characters; checking any field replaces the plain tweet text, so check "Text" to keep it.</p>
+                <p class="setting-note" id="twTagNote">Tags: each checked field becomes its own tag, listed in the order you arrange, after the site tag.</p>
               </div>
 
             </div>

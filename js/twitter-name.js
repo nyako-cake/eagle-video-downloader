@@ -64,6 +64,18 @@ const ANNOTATION_FIELD_MAX_LENGTH = {
 /** 注释总长度上限，与 Eagle 注释上限保持一致 */
 const ANNOTATION_MAX_LENGTH = 5000;
 
+/** 标签里各字段的长度上限，正文按单条标签上限收紧 */
+const TAG_FIELD_MAX_LENGTH = {
+  authorId: 40,
+  tweetId: 40,
+  screenName: 40,
+  name: 60,
+  text: 100,
+};
+
+/** 单条标签的长度上限 */
+const TAG_MAX_LENGTH = 100;
+
 function getDefaultPrefs() {
   return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
 }
@@ -163,6 +175,26 @@ function buildTwitterAnnotation(metadata, prefs) {
 }
 
 /**
+ * 生成推特素材标签：每个勾选的字段各自成为一条标签，按调整后的顺序返回，不拼接成一条
+ * @param {Object} metadata
+ * @param {Object} prefs
+ * @returns {string[]} 空数组表示未勾选任何字段，调用方沿用原标签
+ */
+function buildTwitterTags(metadata, prefs) {
+  const enabled = Object.assign(getDefaultPrefs(), prefs || {});
+  const values = fieldValues(metadata, TAG_FIELD_MAX_LENGTH);
+  const tags = [];
+  for (const field of normalizeOrder(enabled.order)) {
+    if (!enabled[field]) continue;
+    const tag = cleanValue(values[field], TAG_MAX_LENGTH).replace(/#/g, "").trim();
+    if (!tag) continue;
+    if (tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) continue;
+    tags.push(tag);
+  }
+  return tags;
+}
+
+/**
  * 同一条推文有多个文件（多图 / 多视频）时，在名称末尾追加「 (i/N)」，
  * 避免同一份元信息生成完全相同的名称而互相覆盖。
  * @param {string} name
@@ -226,11 +258,14 @@ module.exports = {
   NAME_MAX_LENGTH,
   ANNOTATION_FIELD_MAX_LENGTH,
   ANNOTATION_MAX_LENGTH,
+  TAG_FIELD_MAX_LENGTH,
+  TAG_MAX_LENGTH,
   getDefaultPrefs,
   normalizeOrder,
   moveInOrder,
   buildTwitterName,
   buildTwitterAnnotation,
+  buildTwitterTags,
   appendPartSuffix,
   composeImportName,
   cleanValue,

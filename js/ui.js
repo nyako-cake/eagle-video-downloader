@@ -535,8 +535,9 @@ function autoGrowTextarea(el) {
  * @param {boolean} opts.xhsTagsPref - 小红书下载是否写入话题标签
  * @param {Object} opts.twitterNamePref - 推特素材命名的勾选状态
  * @param {Object} opts.twitterAnnotationPref - 推特素材注释的勾选状态
+ * @param {Object} opts.twitterTagsPref - 推特素材标签规则的勾选状态
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, twitterTagsPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnTags = document.getElementById("tabBtnTags");
@@ -555,7 +556,9 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const twNameNote = document.getElementById("twNameNote");
   const twNameColumnTitle = document.getElementById("twNameColumnTitle");
   const twAnColumnTitle = document.getElementById("twAnColumnTitle");
+  const twTagColumnTitle = document.getElementById("twTagColumnTitle");
   const twAnNote = document.getElementById("twAnNote");
+  const twTagNote = document.getElementById("twTagNote");
   const twitterNameFields = {
     authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
     tweetId: { box: "twNameTweetId", label: "twNameTweetIdLabel" },
@@ -569,6 +572,13 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     screenName: { box: "twAnScreenName", label: "twAnScreenNameLabel" },
     text: { box: "twAnText", label: "twAnTextLabel" },
     name: { box: "twAnFullName", label: "twAnFullNameLabel" },
+  };
+  const twitterTagsFields = {
+    authorId: { box: "twTagAuthorId", label: "twTagAuthorIdLabel" },
+    tweetId: { box: "twTagTweetId", label: "twTagTweetIdLabel" },
+    screenName: { box: "twTagScreenName", label: "twTagScreenNameLabel" },
+    text: { box: "twTagText", label: "twTagTextLabel" },
+    name: { box: "twTagFullName", label: "twTagFullNameLabel" },
   };
   const maxResLabel = document.getElementById("maxResolutionLabel");
   const maxResHint = document.getElementById("maxResolutionHint");
@@ -623,6 +633,17 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     if (label) label.textContent = i18next.t(`deps.${ids.label}`);
   }
   applyTwitterAnnotationOrder(annotationPrefs.order);
+
+  if (twTagNote) twTagNote.textContent = i18next.t("deps.twTagNote");
+  if (twTagColumnTitle) twTagColumnTitle.textContent = i18next.t("deps.twTagColumnTitle");
+  const tagsPrefs = Object.assign(twitterName.getDefaultPrefs(), twitterTagsPref || {});
+  for (const [field, ids] of Object.entries(twitterTagsFields)) {
+    const box = document.getElementById(ids.box);
+    if (box) box.checked = tagsPrefs[field] === true;
+    const label = document.getElementById(ids.label);
+    if (label) label.textContent = i18next.t(`deps.${ids.label}`);
+  }
+  applyTwitterTagsOrder(tagsPrefs.order);
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");
@@ -945,12 +966,16 @@ function applyTwitterNameOrder(order) {
   applyFieldOrder("twNameFields", order);
 }
 
-/**
- * 注释规则的字段顺序
- * @param {string[]} order
- */
 function applyTwitterAnnotationOrder(order) {
   applyFieldOrder("twAnnotationFields", order);
+}
+
+/**
+ * 标签规则的字段顺序
+ * @param {string[]} order
+ */
+function applyTwitterTagsOrder(order) {
+  applyFieldOrder("twTagFields", order);
 }
 
 /**
@@ -977,6 +1002,7 @@ module.exports = {
   autoGrowTextarea,
   applyTwitterNameOrder,
   applyTwitterAnnotationOrder,
+  applyTwitterTagsOrder,
   refreshAccountFields,
   applyIntervalSelect,
   getIntervalChoice,

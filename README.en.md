@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.10.1)
+## What's New (3.2.0 - 3.11.0)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -60,10 +60,11 @@ Main changes in this branch compared to upstream 3.0.0.
 - The settings tab bar gets a new "Import Info" tab, placed right after Settings, that groups the tags written into Eagle on import and the imported item naming rules
 - The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
 - The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
-- Twitter info rules: the "Twitter Info Rules" card on the same tab is split into two columns - "Name" on the left builds the imported item name, "Annotation" on the right builds the annotation, each offering the same five fields: Twitter ID (author numeric ID), Tweet ID, username (@handle), text and full name
-- Each row has move-up/move-down buttons and the two columns keep their own selection and order; both join fields with " - ", and the name column's order is the filename order
+- Twitter info rules: the "Twitter Info Rules" card on the same tab is laid out as three columns - "Name", "Annotation" and "Tags" from left to right - which build the imported item name, its annotation and its tags respectively, each offering the same five fields: Twitter ID (author numeric ID), Tweet ID, username (@handle), text and full name
+- Each row has move-up/move-down buttons and the three columns keep their own selection and order; name and annotation join fields with " - ", and the name column's order is the filename order
 - With nothing selected the name keeps "tweet text - @handle", is truncated past 150 characters and has illegal filename characters replaced; " (1/N)" is appended to the item name when one tweet yields several files
 - With nothing selected the annotation keeps the plain tweet text; once any field is selected it is built only from the selected fields, so check "Text" to keep the text; illegal filename characters are not stripped and the total is capped at 5000 characters
+- With nothing selected the tags stay the site tag; once any field is selected each field becomes its own tag (not joined into one), listed after the site tag in the arranged order, duplicates of the site tag are dropped case-insensitively, and an import writes at most 30 tags with each tag truncated past 100 characters
 
 ### Bridge and LAN
 

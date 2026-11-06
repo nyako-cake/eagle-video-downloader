@@ -40,7 +40,16 @@ function buildImportTags(metadata) {
     // 偏好设置里关闭后，小红书笔记不写任何标签
     return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
   }
-  return adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
+  const baseTags = adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
+  const isTwitter = String(metadata.extractor || "").toLowerCase() === "twitter";
+  if (!isTwitter) return baseTags;
+  // 推特额外追加「标签规则」勾选出来的字段标签，按调整后的顺序排在站点标签之后
+  const ruleTags = twitterName.buildTwitterTags(metadata, getTwitterTagsPref());
+  const merged = baseTags.slice();
+  for (const tag of ruleTags) {
+    if (!merged.some((existing) => existing.toLowerCase() === tag.toLowerCase())) merged.push(tag);
+  }
+  return merged.slice(0, 30);
 }
 
 /**
@@ -129,6 +138,7 @@ function setXhsTagsPref(value) {
 // 推特素材命名 / 注释的勾选状态与字段顺序（JSON：{ authorId, tweetId, screenName, text, name, order }）
 const TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
 const TWITTER_ANNOTATION_KEY = "eagle-video-downloader.twitterAnnotation";
+const TWITTER_TAGS_KEY = "eagle-video-downloader.twitterTagRules";
 
 /**
  * 为「五个字段 + 顺序」这类偏好造一组读写函数，命名规则与注释规则各用一个 key
@@ -185,6 +195,7 @@ function createFieldPrefsStore(storageKey) {
 
 const twitterNamePrefsStore = createFieldPrefsStore(TWITTER_NAME_KEY);
 const twitterAnnotationPrefsStore = createFieldPrefsStore(TWITTER_ANNOTATION_KEY);
+const twitterTagsPrefsStore = createFieldPrefsStore(TWITTER_TAGS_KEY);
 
 /**
  * 获取推特素材命名的勾选状态与字段顺序，缺失的字段回落到默认值
@@ -256,6 +267,42 @@ function setTwitterAnnotationOrder(order) {
  */
 function moveTwitterAnnotationField(field, direction) {
   return twitterAnnotationPrefsStore.move(field, direction);
+}
+
+/**
+ * 获取推特素材标签规则的勾选状态与字段顺序
+ * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean, order: string[]}}
+ */
+function getTwitterTagsPref() {
+  return twitterTagsPrefsStore.get();
+}
+
+/**
+ * 保存单个推特标签字段的勾选状态
+ * @param {string} field
+ * @param {boolean} value
+ */
+function setTwitterTagsPref(field, value) {
+  twitterTagsPrefsStore.setField(field, value);
+}
+
+/**
+ * 保存标签用的字段顺序，返回校正后的顺序
+ * @param {string[]} order
+ * @returns {string[]}
+ */
+function setTwitterTagsOrder(order) {
+  return twitterTagsPrefsStore.setOrder(order);
+}
+
+/**
+ * 把标签字段上移或下移一格，返回新顺序（越界时返回 null）
+ * @param {string} field
+ * @param {"up"|"down"} direction
+ * @returns {string[]|null}
+ */
+function moveTwitterTagsField(field, direction) {
+  return twitterTagsPrefsStore.move(field, direction);
 }
 
 /**
@@ -546,6 +593,38 @@ function setupEventListeners() {
     });
   }
 
+  // 推特标签字段复选框
+  const twitterTagsToggles = {
+    authorId: "twTagAuthorId",
+    tweetId: "twTagTweetId",
+    screenName: "twTagScreenName",
+    text: "twTagText",
+    name: "twTagFullName",
+  };
+  for (const [field, id] of Object.entries(twitterTagsToggles)) {
+    const box = document.getElementById(id);
+    if (box) {
+      box.addEventListener("change", (e) => {
+        setTwitterTagsPref(field, e.target.checked);
+      });
+    }
+  }
+
+  // 推特标签字段顺序：上移 / 下移
+  const twTagFields = document.getElementById("twTagFields");
+  if (twTagFields) {
+    twTagFields.addEventListener("click", (e) => {
+      const button = e.target.closest(".setting-order-btn");
+      if (!button) return;
+      const row = button.closest(".setting-check-row");
+      const field = row && row.dataset.field;
+      if (!field) return;
+      const direction = button.dataset.move === "up" ? "up" : "down";
+      const order = moveTwitterTagsField(field, direction);
+      if (order) ui.applyTwitterTagsOrder(order);
+    });
+  }
+
   // 清晰度上限选择切换
   const maxResSelect = document.getElementById("maxResolutionSelect");
   if (maxResSelect) {
@@ -792,6 +871,7 @@ async function initializeBinaries() {
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
         twitterAnnotationPref: getTwitterAnnotationPrefs(),
+        twitterTagsPref: getTwitterTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1084,6 +1164,7 @@ function openDepsPage() {
     xhsTagsPref: getXhsTagsPref(),
     twitterNamePref: getTwitterNamePrefs(),
         twitterAnnotationPref: getTwitterAnnotationPrefs(),
+        twitterTagsPref: getTwitterTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1530,5 +1611,9 @@ module.exports = {
   setTwitterAnnotationPref,
   setTwitterAnnotationOrder,
   moveTwitterAnnotationField,
+  getTwitterTagsPref,
+  setTwitterTagsPref,
+  setTwitterTagsOrder,
+  moveTwitterTagsField,
 };
 
