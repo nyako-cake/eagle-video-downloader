@@ -140,7 +140,8 @@
     "twTagScreenNameLabel": "Username",
     "twTagTextLabel": "Text",
     "twTagFullNameLabel": "Full name",
-    "twTagNote": "Tags: each checked field becomes its own tag, listed after the site tag in the order you arrange; a tag longer than 100 characters is truncated.",
+    "twTagNote": "Tags: each checked field becomes its own tag, listed after the site tag in the order you arrange; a tag longer than 100 characters is truncated. When two adjacent tags are both checked, a chain button appears between them - click it to merge the two into one tag joined with \" - \".",
+    "twTagJoinLabel": "Combine with the tag above",
 
     "maxResolutionLabel": "Max Resolution",
     "maxResolutionHint": "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",

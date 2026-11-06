@@ -140,7 +140,8 @@
     "twTagScreenNameLabel": "用户名",
     "twTagTextLabel": "正文",
     "twTagFullNameLabel": "全名",
-    "twTagNote": "标签：每个勾选的字段各自成为一条独立标签，按调整后的顺序排在该站点标签之后，单条标签超过 100 个字符截断。",
+    "twTagNote": "标签：每个勾选的字段各自成为一条独立标签，按调整后的顺序排在该站点标签之后，单条标签超过 100 个字符截断。上下两条都勾选时，两行之间会出现锁链按钮，点一下把这两条合并成一条标签（用「 - 」连接）。",
+    "twTagJoinLabel": "与上一条标签合并",
 
     "maxResolutionLabel": "清晰度上限",
     "maxResolutionHint": "限制下载的最大清晰度。若目标视频无对应画质，将自动向下匹配最高可用清晰度。",

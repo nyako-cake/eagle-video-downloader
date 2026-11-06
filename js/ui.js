@@ -648,6 +648,11 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
 
   if (twTagNote) twTagNote.textContent = i18next.t("deps.twTagNote");
   if (twTagColumnTitle) twTagColumnTitle.textContent = i18next.t("deps.twTagColumnTitle");
+  for (const joinBtn of document.querySelectorAll("#twTagFields .setting-join-btn")) {
+    const joinText = i18next.t("deps.twTagJoinLabel");
+    joinBtn.title = joinText;
+    joinBtn.setAttribute("aria-label", joinText);
+  }
   const tagsPrefs = Object.assign(twitterName.getDefaultPrefs(), twitterTagsPref || {});
   for (const [field, ids] of Object.entries(twitterTagsFields)) {
     const box = document.getElementById(ids.box);
@@ -655,7 +660,7 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
     const label = document.getElementById(ids.label);
     if (label) label.textContent = i18next.t(`deps.${ids.label}`);
   }
-  applyTwitterTagsOrder(tagsPrefs.order);
+  applyTwitterTagsOrder(tagsPrefs.order, tagsPrefs.join);
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");
@@ -949,6 +954,9 @@ function updateFfmpegCard(state, data = {}) {
   }
 }
 
+/** 标签列当前的「合并上一条」标记，随界面刷新更新 */
+let tagJoinState = [];
+
 /**
  * 按保存的顺序重排某个字段列表，并禁用首行的「上移」与末行的「下移」
  * @param {string} containerId
@@ -983,11 +991,68 @@ function applyTwitterAnnotationOrder(order) {
 }
 
 /**
- * 标签规则的字段顺序
+ * 标签规则的字段顺序：行与行之间夹着「合并上一条」的锁链按钮，
+ * 重排时要连同按钮一起搬，否则按钮会留在原地。
  * @param {string[]} order
+ * @param {string[]} [join] 合并标记，缺省时沿用界面缓存
  */
-function applyTwitterTagsOrder(order) {
-  applyFieldOrder("twTagFields", order);
+function applyTwitterTagsOrder(order, join) {
+  const container = document.getElementById("twTagFields");
+  if (container) {
+    const fields = twitterName.normalizeOrder(order);
+    fields.forEach((field) => {
+      // 每个字段前面都跟着自己的锁链槽位（第一行那颗由刷新逻辑隐藏）
+      const slot = container.querySelector(`.setting-check-join[data-join="${field}"]`);
+      if (slot) container.appendChild(slot);
+      const row = container.querySelector(`.setting-check-row[data-field="${field}"]`);
+      if (row) container.appendChild(row);
+    });
+    const rows = fields
+      .map((field) => container.querySelector(`.setting-check-row[data-field="${field}"]`))
+      .filter(Boolean);
+    rows.forEach((row, index) => {
+      const up = row.querySelector('[data-move="up"]');
+      const down = row.querySelector('[data-move="down"]');
+      if (up) up.disabled = index === 0;
+      if (down) down.disabled = index === rows.length - 1;
+    });
+  }
+  refreshTwitterTagJoins(join);
+}
+
+/**
+ * 依据当前勾选状态和顺序刷新锁链按钮：只有上下两条都勾选时才出现，
+ * 已合并的按钮显示为按下状态。
+ * @param {string[]} [join] 最新的合并标记，缺省时沿用缓存
+ */
+function refreshTwitterTagJoins(join) {
+  if (Array.isArray(join)) tagJoinState = twitterName.normalizeJoin(join);
+  const container = document.getElementById("twTagFields");
+  if (!container) return;
+  const fields = Array.from(container.querySelectorAll(".setting-check-row")).map((row) => row.dataset.field);
+  fields.forEach((field, index) => {
+    const slot = container.querySelector(`.setting-check-join[data-join="${field}"]`);
+    if (!slot) return;
+    const checked = isTagRowChecked(container, field);
+    const above = index > 0 ? fields[index - 1] : "";
+    const aboveChecked = above ? isTagRowChecked(container, above) : false;
+    const visible = Boolean(above) && checked && aboveChecked;
+    slot.hidden = !visible;
+    const linked = visible && tagJoinState.includes(field);
+    slot.classList.toggle("is-linked", linked);
+    const button = slot.querySelector("button");
+    if (button) button.setAttribute("aria-pressed", linked ? "true" : "false");
+  });
+}
+
+/**
+ * 该字段的标签复选框是否勾选
+ * @param {HTMLElement} container
+ * @param {string} field
+ */
+function isTagRowChecked(container, field) {
+  const box = container.querySelector(`.setting-check-row[data-field="${field}"] input[type="checkbox"]`);
+  return Boolean(box && box.checked);
 }
 
 /**
@@ -1015,6 +1080,7 @@ module.exports = {
   applyTwitterNameOrder,
   applyTwitterAnnotationOrder,
   applyTwitterTagsOrder,
+  refreshTwitterTagJoins,
   refreshAccountFields,
   applyIntervalSelect,
   getIntervalChoice,

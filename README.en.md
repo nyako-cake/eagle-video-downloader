@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.12.1)
+## What's New (3.2.0 - 3.13.0)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -61,12 +61,13 @@ Main changes in this branch compared to upstream 3.0.0.
 - The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
 - The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
 - Twitter info rules: the "Twitter Info Rules" card on the same tab is laid out as three columns - "Name", "Annotation" and "Tags" from left to right - which build the imported item name, its annotation and its tags respectively, each offering the same five fields: Twitter ID (author numeric ID), Tweet ID, username (@handle), text and full name
-- The three columns are split by vertical divider lines and share the card background, with no tinted panel or frame around the block
+- The three columns are spaced apart with the vertical divider line centred in the gap, and they share the card background, with no tinted panel or frame around the block
 - Each row has move-up/move-down buttons and the three columns keep their own selection and order; name and annotation join fields with " - ", and the name column's order is the filename order
 - With nothing selected the name keeps "tweet text - @handle", is truncated past 150 characters and has illegal filename characters replaced
 - Distinguish multiple files: the switch inside the Twitter card decides whether " (1/N)" is appended when one tweet yields several images or videos; the Xiaohongshu card has the same switch for a note with several files. Both default to on, and turning one off makes the files share the name
 - With nothing selected the annotation keeps the plain tweet text; once any field is selected it is built only from the selected fields, so check "Text" to keep the text; illegal filename characters are not stripped and the total is capped at 5000 characters
 - With nothing selected the tags stay the site tag; once any field is selected each field becomes its own tag (not joined into one), listed after the site tag in the arranged order, duplicates of the site tag are dropped case-insensitively, and an import writes at most 30 tags with each tag truncated past 100 characters
+- Combined tags: when two adjacent tags are both checked, a chain button appears between the rows - click it to merge the lower tag into the one above, so the two fields come out as a single tag joined with " - "; clicking again splits them back, consecutive merges chain into one tag, and the merged tag still obeys the 100-character limit
 
 ### Bridge and LAN
 

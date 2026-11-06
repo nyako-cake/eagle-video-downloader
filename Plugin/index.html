@@ -1132,25 +1132,78 @@
       cursor: default;
     }
 
-    /* 推特信息规则：名称 / 注释 / 标签三列并排，各自独立排序，列与列之间有分隔线 */
+    /* 推特信息规则：名称 / 注释 / 标签三列并排，各自独立排序，列与列之间留空隙并画分隔线 */
     .setting-check-columns {
       display: flex;
       align-items: stretch;
-      gap: 0;
+      gap: 6px;
       width: 100%;
     }
 
     .setting-check-group {
+      position: relative;
       flex: 1 1 0;
       min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding: 0 2px;
     }
 
-    .setting-check-group + .setting-check-group {
-      border-left: 1px solid var(--border-strong);
+    .setting-check-group + .setting-check-group::before {
+      content: "";
+      position: absolute;
+      left: -3px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--border-strong);
+    }
+
+    /* 标签列里两条标签之间的锁链按钮：点了把下一条并到上一条 */
+    .setting-check-join {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 12px;
+      margin: -3px 0;
+    }
+
+    /* display: flex 会压过 hidden 属性的默认样式，这里显式补齐 */
+    .setting-check-join[hidden] {
+      display: none;
+    }
+
+    .setting-check-join.is-linked .setting-join-btn {
+      color: var(--brand);
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .setting-join-btn {
+      width: 28px;
+      height: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--fg3);
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .setting-join-btn:hover {
+      color: var(--fg1);
+      border-color: var(--border-strong);
+    }
+
+    .setting-join-btn svg {
+      width: 11px;
+      height: 11px;
+      pointer-events: none;
     }
 
     .setting-check-title {
@@ -1793,6 +1846,11 @@
                     <div class="setting-check-group no-drag">
                       <div class="setting-check-title" id="twTagColumnTitle">Tags</div>
                       <div id="twTagFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                        <div class="setting-check-join no-drag" data-join="authorId" hidden>
+                          <button type="button" class="setting-join-btn" id="twTagJoinAuthorId" aria-label="Combine with the tag above" title="Combine with the tag above" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><path d="M8 12h8" /></svg>
+                          </button>
+                        </div>
                         <div class="setting-check-row no-drag" data-field="authorId">
                           <label class="setting-check no-drag">
                             <input type="checkbox" id="twTagAuthorId" />
@@ -1802,6 +1860,11 @@
                             <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
                             <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
                           </div>
+                        </div>
+                        <div class="setting-check-join no-drag" data-join="tweetId" hidden>
+                          <button type="button" class="setting-join-btn" id="twTagJoinTweetId" aria-label="Combine with the tag above" title="Combine with the tag above" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><path d="M8 12h8" /></svg>
+                          </button>
                         </div>
                         <div class="setting-check-row no-drag" data-field="tweetId">
                           <label class="setting-check no-drag">
@@ -1813,6 +1876,11 @@
                             <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
                           </div>
                         </div>
+                        <div class="setting-check-join no-drag" data-join="screenName" hidden>
+                          <button type="button" class="setting-join-btn" id="twTagJoinScreenName" aria-label="Combine with the tag above" title="Combine with the tag above" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><path d="M8 12h8" /></svg>
+                          </button>
+                        </div>
                         <div class="setting-check-row no-drag" data-field="screenName">
                           <label class="setting-check no-drag">
                             <input type="checkbox" id="twTagScreenName" />
@@ -1823,6 +1891,11 @@
                             <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
                           </div>
                         </div>
+                        <div class="setting-check-join no-drag" data-join="text" hidden>
+                          <button type="button" class="setting-join-btn" id="twTagJoinText" aria-label="Combine with the tag above" title="Combine with the tag above" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><path d="M8 12h8" /></svg>
+                          </button>
+                        </div>
                         <div class="setting-check-row no-drag" data-field="text">
                           <label class="setting-check no-drag">
                             <input type="checkbox" id="twTagText" />
@@ -1832,6 +1905,11 @@
                             <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
                             <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
                           </div>
+                        </div>
+                        <div class="setting-check-join no-drag" data-join="name" hidden>
+                          <button type="button" class="setting-join-btn" id="twTagJoinFullName" aria-label="Combine with the tag above" title="Combine with the tag above" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7a5 5 0 0 1 0-10h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><path d="M8 12h8" /></svg>
+                          </button>
                         </div>
                         <div class="setting-check-row no-drag" data-field="name">
                           <label class="setting-check no-drag">

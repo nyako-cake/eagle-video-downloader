@@ -31,6 +31,22 @@ const FIELD_ORDER = ["authorId", "tweetId", "screenName", "text", "name"];
 const DEFAULT_ORDER = FIELD_ORDER.slice();
 
 /**
+ * 校正「合并上一条标签」的标记：只保留认识的字段，去重，顺序跟随 FIELD_ORDER。
+ * 数组里的字段表示它要和顺序中紧邻的上一条已勾选字段合并成一条标签。
+ * @param {Array} join
+ * @returns {string[]}
+ */
+function normalizeJoin(join) {
+  const result = [];
+  if (Array.isArray(join)) {
+    for (const field of join) {
+      if (FIELD_ORDER.includes(field) && !result.includes(field)) result.push(field);
+    }
+  }
+  return result;
+}
+
+/**
  * 校正用户保存的顺序：丢掉不认识的字段与重复项，再把漏掉的字段按默认顺序补到末尾，
  * 保证返回一个包含全部字段的完整顺序。
  * @param {Array} order
@@ -77,7 +93,7 @@ const TAG_FIELD_MAX_LENGTH = {
 const TAG_MAX_LENGTH = 100;
 
 function getDefaultPrefs() {
-  return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
+  return Object.assign({ order: DEFAULT_ORDER.slice(), join: [] }, DEFAULT_PREFS);
 }
 
 /**
@@ -175,7 +191,9 @@ function buildTwitterAnnotation(metadata, prefs) {
 }
 
 /**
- * 生成推特素材标签：每个勾选的字段各自成为一条标签，按调整后的顺序返回，不拼接成一条
+ * 生成推特素材标签：每个勾选的字段各自成为一条标签，按调整后的顺序返回。
+ * 若某字段在 prefs.join 里，且有紧邻在它前面的已勾选字段，就并入上一条标签，
+ * 用「 - 」连接后合成一条（多段连续合并会一路并下去）。
  * @param {Object} metadata
  * @param {Object} prefs
  * @returns {string[]} 空数组表示未勾选任何字段，调用方沿用原标签
@@ -183,11 +201,25 @@ function buildTwitterAnnotation(metadata, prefs) {
 function buildTwitterTags(metadata, prefs) {
   const enabled = Object.assign(getDefaultPrefs(), prefs || {});
   const values = fieldValues(metadata, TAG_FIELD_MAX_LENGTH);
+  const joins = normalizeJoin(enabled.join);
   const tags = [];
+  let previousChecked = false;
   for (const field of normalizeOrder(enabled.order)) {
-    if (!enabled[field]) continue;
+    if (!enabled[field]) {
+      previousChecked = false;
+      continue;
+    }
     const tag = cleanValue(values[field], TAG_MAX_LENGTH).replace(/#/g, "").trim();
+    const merge = joins.includes(field) && previousChecked && tags.length > 0;
+    previousChecked = true;
     if (!tag) continue;
+    if (merge) {
+      const merged = `${tags[tags.length - 1]} - ${tag}`;
+      tags[tags.length - 1] = merged.length > TAG_MAX_LENGTH
+        ? merged.slice(0, TAG_MAX_LENGTH - 1).trimEnd() + "…"
+        : merged;
+      continue;
+    }
     if (tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) continue;
     tags.push(tag);
   }
@@ -264,6 +296,7 @@ module.exports = {
   TAG_MAX_LENGTH,
   getDefaultPrefs,
   normalizeOrder,
+  normalizeJoin,
   moveInOrder,
   buildTwitterName,
   buildTwitterAnnotation,

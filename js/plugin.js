@@ -202,6 +202,7 @@ function createFieldPrefsStore(storageKey) {
         if (typeof saved[field] === "boolean") prefs[field] = saved[field];
       }
       if (Array.isArray(saved.order)) prefs.order = twitterName.normalizeOrder(saved.order);
+      if (Array.isArray(saved.join)) prefs.join = twitterName.normalizeJoin(saved.join);
     }
     return prefs;
   }
@@ -224,6 +225,24 @@ function createFieldPrefsStore(storageKey) {
     return prefs.order;
   }
 
+  /**
+   * 标记某个字段是否和它上面那条已勾选字段合并成一条标签
+   * @param {string} field
+   * @param {boolean} joined
+   * @returns {string[]} 校正后的 join 列表
+   */
+  function setJoin(field, joined) {
+    if (!twitterName.FIELD_ORDER.includes(field)) return get().join;
+    const prefs = get();
+    const list = Array.isArray(prefs.join) ? prefs.join.slice() : [];
+    const index = list.indexOf(field);
+    if (joined === true && index < 0) list.push(field);
+    if (joined !== true && index >= 0) list.splice(index, 1);
+    prefs.join = twitterName.normalizeJoin(list);
+    save(prefs);
+    return prefs.join;
+  }
+
   function move(field, direction) {
     const prefs = get();
     const moved = twitterName.moveInOrder(prefs.order, field, direction);
@@ -231,7 +250,7 @@ function createFieldPrefsStore(storageKey) {
     return setOrder(moved);
   }
 
-  return { get, setField, setOrder, move };
+  return { get, setField, setOrder, setJoin, move };
 }
 
 const twitterNamePrefsStore = createFieldPrefsStore(TWITTER_NAME_KEY);
@@ -334,6 +353,16 @@ function setTwitterTagsPref(field, value) {
  */
 function setTwitterTagsOrder(order) {
   return twitterTagsPrefsStore.setOrder(order);
+}
+
+/**
+ * 保存标签字段是否与上一条已勾选字段合并成一条标签，返回新顺序下的合并标记
+ * @param {string} field
+ * @param {boolean} joined
+ * @returns {string[]}
+ */
+function setTwitterTagsJoin(field, joined) {
+  return twitterTagsPrefsStore.setJoin(field, joined);
 }
 
 /**
@@ -663,6 +692,8 @@ function setupEventListeners() {
     if (box) {
       box.addEventListener("change", (e) => {
         setTwitterTagsPref(field, e.target.checked);
+        // 相邻两条都勾选时才出现锁链按钮，勾选状态一变就要重算
+        ui.refreshTwitterTagJoins(getTwitterTagsPref().join);
       });
     }
   }
@@ -671,6 +702,17 @@ function setupEventListeners() {
   const twTagFields = document.getElementById("twTagFields");
   if (twTagFields) {
     twTagFields.addEventListener("click", (e) => {
+      // 锁链按钮：把这一条并到上面那条标签里
+      const joinBtn = e.target.closest(".setting-join-btn");
+      if (joinBtn) {
+        const slot = joinBtn.closest(".setting-check-join");
+        const joinField = slot && slot.dataset.join;
+        if (!joinField) return;
+        const joined = getTwitterTagsPref().join.includes(joinField);
+        const join = setTwitterTagsJoin(joinField, !joined);
+        ui.refreshTwitterTagJoins(join);
+        return;
+      }
       const button = e.target.closest(".setting-order-btn");
       if (!button) return;
       const row = button.closest(".setting-check-row");
@@ -678,7 +720,7 @@ function setupEventListeners() {
       if (!field) return;
       const direction = button.dataset.move === "up" ? "up" : "down";
       const order = moveTwitterTagsField(field, direction);
-      if (order) ui.applyTwitterTagsOrder(order);
+      if (order) ui.applyTwitterTagsOrder(order, getTwitterTagsPref().join);
     });
   }
 
@@ -1675,6 +1717,7 @@ module.exports = {
   getTwitterTagsPref,
   setTwitterTagsPref,
   setTwitterTagsOrder,
+  setTwitterTagsJoin,
   moveTwitterTagsField,
   getXhsMultiFilePref,
   setXhsMultiFilePref,

@@ -248,6 +248,39 @@ assert.deepStrictEqual(
 // 空元信息不产出任何标签
 assert.deepStrictEqual(buildTwitterTags(null, { text: true, name: true }), []);
 
+// 组合标签：join 里的字段并到它上面那条已勾选的标签里，用「 - 」连接后输出一条
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { screenName: true, text: true, join: ["text"] }),
+  ["@nyako_cake - 今日份的猫 好可爱"],
+  "joined pair becomes a single tag"
+);
+
+// 连续合并：三行都勾选且后两个都 join，并成一条
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { authorId: true, tweetId: true, screenName: true, join: ["tweetId", "screenName"] }),
+  ["44196397 - 1789000000000000000 - @nyako_cake"],
+  "consecutive joins merge into one tag"
+);
+
+// 只合并是否相邻决定：中间隔着未勾选的字段就不合并
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { authorId: true, screenName: true, join: ["screenName"] }),
+  ["44196397", "@nyako_cake"],
+  "an unchecked field in between breaks the join"
+);
+
+// 顺序里排第一的字段没有「上一条」，join 标记被忽略
+assert.deepStrictEqual(
+  buildTwitterTags(tweetMeta, { screenName: true, text: true, join: ["text"], order: ["text", "tweetId", "screenName", "authorId", "name"] }),
+  ["今日份的猫 好可爱", "@nyako_cake"],
+  "the first tag cannot join anything above it"
+);
+
+// 合并后的长度同样受单条标签上限约束
+const joinedLong = buildTwitterTags({ description: "猫".repeat(80), authorName: "狗".repeat(30) }, { name: true, text: true, join: ["name"] })[0];
+assert.strictEqual(joinedLong.length, TAG_MAX_LENGTH);
+assert(joinedLong.endsWith("…"), "merged tag is truncated to the tag limit");
+
 console.log("twitter-name: buildTwitterTags checks passed");
 
 console.log("twitter-name: buildTwitterName checks passed");

@@ -146,6 +146,23 @@ assert.strictEqual(plugin.buildImportTags(manyTagMeta).length, 30, "tags are cap
 assert.deepStrictEqual(plugin.buildImportTags({ extractor: "youtube", title: "视频" }), ["youtube"]);
 assert.deepStrictEqual(plugin.buildImportTags({ extractor: "youtube", tags: ["#音乐"] }), ["音乐"]);
 
+// 组合标签：勾上锁链后两条字段并成一条标签
+assert.strictEqual(plugin.getTwitterTagsPref().join.length, 0, "no tag is joined by default");
+plugin.setTwitterTagsJoin("text", true);
+assert.deepStrictEqual(plugin.getTwitterTagsPref().join, ["text"]);
+// 把标签顺序调成「用户名 → 正文」，并只勾这两项，正文就能并到用户名上
+for (const field of ["authorId", "tweetId", "screenName", "text", "name"]) plugin.setTwitterTagsPref(field, false);
+plugin.setTwitterTagsPref("screenName", true);
+plugin.setTwitterTagsPref("text", true);
+plugin.setTwitterTagsOrder(["screenName", "text", "authorId", "tweetId", "name"]);
+assert.deepStrictEqual(plugin.buildImportTags(tweet), ["twitter", "@nyako_cake - 今日份的猫 好可爱"]);
+// 取消锁链后恢复成两条独立标签
+plugin.setTwitterTagsJoin("text", false);
+assert.strictEqual(plugin.getTwitterTagsPref().join.length, 0);
+assert.deepStrictEqual(plugin.buildImportTags(tweet), ["twitter", "@nyako_cake", "今日份的猫 好可爱"]);
+
+console.log("twitter-name: plugin tag join checks passed");
+
 console.log("twitter-name: plugin import tags checks passed");
 
 // ---------------- 多文件区分开关 ----------------

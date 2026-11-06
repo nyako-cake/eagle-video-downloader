@@ -6087,6 +6087,16 @@ var require_twitter_name = __commonJS({
     };
     var FIELD_ORDER = ["authorId", "tweetId", "screenName", "text", "name"];
     var DEFAULT_ORDER = FIELD_ORDER.slice();
+    function normalizeJoin(join) {
+      const result = [];
+      if (Array.isArray(join)) {
+        for (const field of join) {
+          if (FIELD_ORDER.includes(field) && !result.includes(field))
+            result.push(field);
+        }
+      }
+      return result;
+    }
     function normalizeOrder(order) {
       const result = [];
       if (Array.isArray(order)) {
@@ -6119,7 +6129,7 @@ var require_twitter_name = __commonJS({
     };
     var TAG_MAX_LENGTH = 100;
     function getDefaultPrefs() {
-      return Object.assign({ order: DEFAULT_ORDER.slice() }, DEFAULT_PREFS);
+      return Object.assign({ order: DEFAULT_ORDER.slice(), join: [] }, DEFAULT_PREFS);
     }
     function cleanValue(raw, maxLength) {
       let value = String(raw == null ? "" : raw).replace(/https:\/\/t\.co\/\S+/gi, " ").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
@@ -6170,13 +6180,24 @@ var require_twitter_name = __commonJS({
     function buildTwitterTags(metadata, prefs) {
       const enabled = Object.assign(getDefaultPrefs(), prefs || {});
       const values = fieldValues(metadata, TAG_FIELD_MAX_LENGTH);
+      const joins = normalizeJoin(enabled.join);
       const tags = [];
+      let previousChecked = false;
       for (const field of normalizeOrder(enabled.order)) {
-        if (!enabled[field])
+        if (!enabled[field]) {
+          previousChecked = false;
           continue;
+        }
         const tag = cleanValue(values[field], TAG_MAX_LENGTH).replace(/#/g, "").trim();
+        const merge = joins.includes(field) && previousChecked && tags.length > 0;
+        previousChecked = true;
         if (!tag)
           continue;
+        if (merge) {
+          const merged = `${tags[tags.length - 1]} - ${tag}`;
+          tags[tags.length - 1] = merged.length > TAG_MAX_LENGTH ? merged.slice(0, TAG_MAX_LENGTH - 1).trimEnd() + "\u2026" : merged;
+          continue;
+        }
         if (tags.some((existing) => existing.toLowerCase() === tag.toLowerCase()))
           continue;
         tags.push(tag);
@@ -6226,6 +6247,7 @@ var require_twitter_name = __commonJS({
       TAG_MAX_LENGTH,
       getDefaultPrefs,
       normalizeOrder,
+      normalizeJoin,
       moveInOrder,
       buildTwitterName,
       buildTwitterAnnotation,
@@ -6812,6 +6834,11 @@ var require_ui = __commonJS({
         twTagNote.textContent = i18next.t("deps.twTagNote");
       if (twTagColumnTitle)
         twTagColumnTitle.textContent = i18next.t("deps.twTagColumnTitle");
+      for (const joinBtn of document.querySelectorAll("#twTagFields .setting-join-btn")) {
+        const joinText = i18next.t("deps.twTagJoinLabel");
+        joinBtn.title = joinText;
+        joinBtn.setAttribute("aria-label", joinText);
+      }
       const tagsPrefs = Object.assign(twitterName2.getDefaultPrefs(), twitterTagsPref || {});
       for (const [field, ids] of Object.entries(twitterTagsFields)) {
         const box = document.getElementById(ids.box);
@@ -6821,7 +6848,7 @@ var require_ui = __commonJS({
         if (label)
           label.textContent = i18next.t(`deps.${ids.label}`);
       }
-      applyTwitterTagsOrder(tagsPrefs.order);
+      applyTwitterTagsOrder(tagsPrefs.order, tagsPrefs.join);
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -7115,6 +7142,7 @@ var require_ui = __commonJS({
           break;
       }
     }
+    var tagJoinState = [];
     function applyFieldOrder(containerId, order) {
       const container = document.getElementById(containerId);
       if (!container)
@@ -7140,8 +7168,56 @@ var require_ui = __commonJS({
     function applyTwitterAnnotationOrder(order) {
       applyFieldOrder("twAnnotationFields", order);
     }
-    function applyTwitterTagsOrder(order) {
-      applyFieldOrder("twTagFields", order);
+    function applyTwitterTagsOrder(order, join) {
+      const container = document.getElementById("twTagFields");
+      if (container) {
+        const fields = twitterName2.normalizeOrder(order);
+        fields.forEach((field) => {
+          const slot = container.querySelector(`.setting-check-join[data-join="${field}"]`);
+          if (slot)
+            container.appendChild(slot);
+          const row = container.querySelector(`.setting-check-row[data-field="${field}"]`);
+          if (row)
+            container.appendChild(row);
+        });
+        const rows = fields.map((field) => container.querySelector(`.setting-check-row[data-field="${field}"]`)).filter(Boolean);
+        rows.forEach((row, index) => {
+          const up = row.querySelector('[data-move="up"]');
+          const down = row.querySelector('[data-move="down"]');
+          if (up)
+            up.disabled = index === 0;
+          if (down)
+            down.disabled = index === rows.length - 1;
+        });
+      }
+      refreshTwitterTagJoins(join);
+    }
+    function refreshTwitterTagJoins(join) {
+      if (Array.isArray(join))
+        tagJoinState = twitterName2.normalizeJoin(join);
+      const container = document.getElementById("twTagFields");
+      if (!container)
+        return;
+      const fields = Array.from(container.querySelectorAll(".setting-check-row")).map((row) => row.dataset.field);
+      fields.forEach((field, index) => {
+        const slot = container.querySelector(`.setting-check-join[data-join="${field}"]`);
+        if (!slot)
+          return;
+        const checked = isTagRowChecked(container, field);
+        const above = index > 0 ? fields[index - 1] : "";
+        const aboveChecked = above ? isTagRowChecked(container, above) : false;
+        const visible = Boolean(above) && checked && aboveChecked;
+        slot.hidden = !visible;
+        const linked = visible && tagJoinState.includes(field);
+        slot.classList.toggle("is-linked", linked);
+        const button = slot.querySelector("button");
+        if (button)
+          button.setAttribute("aria-pressed", linked ? "true" : "false");
+      });
+    }
+    function isTagRowChecked(container, field) {
+      const box = container.querySelector(`.setting-check-row[data-field="${field}"] input[type="checkbox"]`);
+      return Boolean(box && box.checked);
     }
     module2.exports = {
       updateTheme,
@@ -7163,6 +7239,7 @@ var require_ui = __commonJS({
       applyTwitterNameOrder,
       applyTwitterAnnotationOrder,
       applyTwitterTagsOrder,
+      refreshTwitterTagJoins,
       refreshAccountFields,
       applyIntervalSelect,
       getIntervalChoice,
@@ -7326,7 +7403,8 @@ var require_en = __commonJS({
         twTagScreenNameLabel: "Username",
         twTagTextLabel: "Text",
         twTagFullNameLabel: "Full name",
-        twTagNote: "Tags: each checked field becomes its own tag, listed after the site tag in the order you arrange; a tag longer than 100 characters is truncated.",
+        twTagNote: 'Tags: each checked field becomes its own tag, listed after the site tag in the order you arrange; a tag longer than 100 characters is truncated. When two adjacent tags are both checked, a chain button appears between them - click it to merge the two into one tag joined with " - ".',
+        twTagJoinLabel: "Combine with the tag above",
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7556,7 +7634,8 @@ var require_zh_CN = __commonJS({
         twTagScreenNameLabel: "\u7528\u6237\u540D",
         twTagTextLabel: "\u6B63\u6587",
         twTagFullNameLabel: "\u5168\u540D",
-        twTagNote: "\u6807\u7B7E\uFF1A\u6BCF\u4E2A\u52FE\u9009\u7684\u5B57\u6BB5\u5404\u81EA\u6210\u4E3A\u4E00\u6761\u72EC\u7ACB\u6807\u7B7E\uFF0C\u6309\u8C03\u6574\u540E\u7684\u987A\u5E8F\u6392\u5728\u8BE5\u7AD9\u70B9\u6807\u7B7E\u4E4B\u540E\uFF0C\u5355\u6761\u6807\u7B7E\u8D85\u8FC7 100 \u4E2A\u5B57\u7B26\u622A\u65AD\u3002",
+        twTagNote: "\u6807\u7B7E\uFF1A\u6BCF\u4E2A\u52FE\u9009\u7684\u5B57\u6BB5\u5404\u81EA\u6210\u4E3A\u4E00\u6761\u72EC\u7ACB\u6807\u7B7E\uFF0C\u6309\u8C03\u6574\u540E\u7684\u987A\u5E8F\u6392\u5728\u8BE5\u7AD9\u70B9\u6807\u7B7E\u4E4B\u540E\uFF0C\u5355\u6761\u6807\u7B7E\u8D85\u8FC7 100 \u4E2A\u5B57\u7B26\u622A\u65AD\u3002\u4E0A\u4E0B\u4E24\u6761\u90FD\u52FE\u9009\u65F6\uFF0C\u4E24\u884C\u4E4B\u95F4\u4F1A\u51FA\u73B0\u9501\u94FE\u6309\u94AE\uFF0C\u70B9\u4E00\u4E0B\u628A\u8FD9\u4E24\u6761\u5408\u5E76\u6210\u4E00\u6761\u6807\u7B7E\uFF08\u7528\u300C - \u300D\u8FDE\u63A5\uFF09\u3002",
+        twTagJoinLabel: "\u4E0E\u4E0A\u4E00\u6761\u6807\u7B7E\u5408\u5E76",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7773,6 +7852,8 @@ function createFieldPrefsStore(storageKey) {
       }
       if (Array.isArray(saved.order))
         prefs.order = twitterName.normalizeOrder(saved.order);
+      if (Array.isArray(saved.join))
+        prefs.join = twitterName.normalizeJoin(saved.join);
     }
     return prefs;
   }
@@ -7792,6 +7873,20 @@ function createFieldPrefsStore(storageKey) {
     save(prefs);
     return prefs.order;
   }
+  function setJoin(field, joined) {
+    if (!twitterName.FIELD_ORDER.includes(field))
+      return get().join;
+    const prefs = get();
+    const list = Array.isArray(prefs.join) ? prefs.join.slice() : [];
+    const index = list.indexOf(field);
+    if (joined === true && index < 0)
+      list.push(field);
+    if (joined !== true && index >= 0)
+      list.splice(index, 1);
+    prefs.join = twitterName.normalizeJoin(list);
+    save(prefs);
+    return prefs.join;
+  }
   function move(field, direction) {
     const prefs = get();
     const moved = twitterName.moveInOrder(prefs.order, field, direction);
@@ -7799,7 +7894,7 @@ function createFieldPrefsStore(storageKey) {
       return null;
     return setOrder(moved);
   }
-  return { get, setField, setOrder, move };
+  return { get, setField, setOrder, setJoin, move };
 }
 var twitterNamePrefsStore = createFieldPrefsStore(TWITTER_NAME_KEY);
 var twitterAnnotationPrefsStore = createFieldPrefsStore(TWITTER_ANNOTATION_KEY);
@@ -7836,6 +7931,9 @@ function setTwitterTagsPref(field, value) {
 }
 function setTwitterTagsOrder(order) {
   return twitterTagsPrefsStore.setOrder(order);
+}
+function setTwitterTagsJoin(field, joined) {
+  return twitterTagsPrefsStore.setJoin(field, joined);
 }
 function moveTwitterTagsField(field, direction) {
   return twitterTagsPrefsStore.move(field, direction);
@@ -8095,12 +8193,24 @@ function setupEventListeners() {
     if (box) {
       box.addEventListener("change", (e) => {
         setTwitterTagsPref(field, e.target.checked);
+        ui.refreshTwitterTagJoins(getTwitterTagsPref().join);
       });
     }
   }
   const twTagFields = document.getElementById("twTagFields");
   if (twTagFields) {
     twTagFields.addEventListener("click", (e) => {
+      const joinBtn = e.target.closest(".setting-join-btn");
+      if (joinBtn) {
+        const slot = joinBtn.closest(".setting-check-join");
+        const joinField = slot && slot.dataset.join;
+        if (!joinField)
+          return;
+        const joined = getTwitterTagsPref().join.includes(joinField);
+        const join = setTwitterTagsJoin(joinField, !joined);
+        ui.refreshTwitterTagJoins(join);
+        return;
+      }
       const button = e.target.closest(".setting-order-btn");
       if (!button)
         return;
@@ -8111,7 +8221,7 @@ function setupEventListeners() {
       const direction = button.dataset.move === "up" ? "up" : "down";
       const order = moveTwitterTagsField(field, direction);
       if (order)
-        ui.applyTwitterTagsOrder(order);
+        ui.applyTwitterTagsOrder(order, getTwitterTagsPref().join);
     });
   }
   const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -8979,6 +9089,7 @@ module.exports = {
   getTwitterTagsPref,
   setTwitterTagsPref,
   setTwitterTagsOrder,
+  setTwitterTagsJoin,
   moveTwitterTagsField,
   getXhsMultiFilePref,
   setXhsMultiFilePref,
