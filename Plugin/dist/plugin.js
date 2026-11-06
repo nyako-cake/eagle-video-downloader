@@ -3167,13 +3167,18 @@ var require_twitter = __commonJS({
       if (!tweet)
         return null;
       const text = typeof tweet.text === "string" ? tweet.text : "";
+      const author = tweet.author || {};
       const base = {
         title: buildTitle(tweet, text, statusId),
         description: text,
-        uploader: tweet.author ? tweet.author.name || tweet.author.screen_name || "Twitter" : "Twitter",
+        uploader: author.name || author.screen_name || "Twitter",
         extractor: "twitter",
         webpage_url: url,
         id: statusId,
+        // 自动标签用的作者字段：数字 ID 供「推特 ID」标签读取
+        authorId: author.id ? String(author.id) : null,
+        authorScreenName: author.screen_name || null,
+        authorName: author.name || null,
         thumbnail: tweet.media && tweet.media.videos && tweet.media.videos[0] ? tweet.media.videos[0].thumbnail_url || null : null
       };
       const videos = tweet.media && Array.isArray(tweet.media.videos) ? tweet.media.videos : [];
@@ -6049,12 +6054,80 @@ var require_twitter_monitor = __commonJS({
   }
 });
 
+// js/twitter-tags.js
+var require_twitter_tags = __commonJS({
+  "js/twitter-tags.js"(exports2, module2) {
+    var SITE_TAG = "twitter";
+    var FIELD_MAX_LENGTH = {
+      authorId: 40,
+      tweetId: 40,
+      screenName: 40,
+      name: 60,
+      text: 120
+    };
+    var DEFAULT_PREFS = {
+      authorId: false,
+      tweetId: true,
+      screenName: true,
+      name: false,
+      text: false
+    };
+    var FIELD_ORDER = ["authorId", "tweetId", "screenName", "name", "text"];
+    function getDefaultPrefs() {
+      return Object.assign({}, DEFAULT_PREFS);
+    }
+    function cleanValue(raw, maxLength) {
+      let value = String(raw == null ? "" : raw).replace(/https:\/\/t\.co\/\S+/gi, " ").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!value)
+        return "";
+      if (maxLength && value.length > maxLength) {
+        value = value.slice(0, maxLength - 1).trimEnd() + "\u2026";
+      }
+      return value;
+    }
+    function fieldValues(metadata) {
+      const meta = metadata || {};
+      const screenName = String(meta.authorScreenName || meta.uploader_id || "").replace(/^@+/, "");
+      return {
+        authorId: cleanValue(meta.authorId, FIELD_MAX_LENGTH.authorId),
+        tweetId: cleanValue(meta.id, FIELD_MAX_LENGTH.tweetId),
+        screenName: screenName ? "@" + cleanValue(screenName, FIELD_MAX_LENGTH.screenName) : "",
+        name: cleanValue(meta.authorName || meta.uploader, FIELD_MAX_LENGTH.name),
+        text: cleanValue(meta.description, FIELD_MAX_LENGTH.text)
+      };
+    }
+    function buildTwitterTags(metadata, prefs) {
+      const enabled = Object.assign(getDefaultPrefs(), prefs || {});
+      const values = fieldValues(metadata);
+      const tags = [SITE_TAG];
+      for (const field of FIELD_ORDER) {
+        if (!enabled[field])
+          continue;
+        const value = values[field];
+        if (value && !tags.includes(value))
+          tags.push(value);
+      }
+      return tags.slice(0, 30);
+    }
+    module2.exports = {
+      SITE_TAG,
+      DEFAULT_PREFS,
+      FIELD_ORDER,
+      FIELD_MAX_LENGTH,
+      getDefaultPrefs,
+      buildTwitterTags,
+      cleanValue
+    };
+  }
+});
+
 // js/ui.js
 var require_ui = __commonJS({
   "js/ui.js"(exports2, module2) {
     var sankakuAuth2 = require_sankaku_auth();
     var twitterAuth2 = require_twitter_auth();
     var twitterMonitor2 = require_twitter_monitor();
+    var twitterTags2 = require_twitter_tags();
     var { scopedKey } = require_library_context();
     var INTERVAL_CHOICE_KEY = "eagle-video-downloader.twitterIntervalChoice";
     function getIntervalChoice() {
@@ -6486,7 +6559,7 @@ var require_ui = __commonJS({
       el.style.height = "auto";
       el.style.height = Math.max(38, el.scrollHeight) + "px";
     }
-    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterTagPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
       const tabBtnTags = document.getElementById("tabBtnTags");
@@ -6500,6 +6573,16 @@ var require_ui = __commonJS({
       const xhsTagsToggle = document.getElementById("xhsTagsToggle");
       const tagsTitle = document.getElementById("tagsTitle");
       const tagsNote = document.getElementById("tagsNote");
+      const twTagsTitle = document.getElementById("twTagsTitle");
+      const twTagsHint = document.getElementById("twTagsHint");
+      const twTagsNote = document.getElementById("twTagsNote");
+      const twitterTagFields = {
+        authorId: { box: "twTagAuthorId", label: "twTagAuthorIdLabel" },
+        tweetId: { box: "twTagTweetId", label: "twTagTweetIdLabel" },
+        screenName: { box: "twTagScreenName", label: "twTagScreenNameLabel" },
+        name: { box: "twTagName", label: "twTagNameLabel" },
+        text: { box: "twTagText", label: "twTagTextLabel" }
+      };
       const maxResLabel = document.getElementById("maxResolutionLabel");
       const maxResHint = document.getElementById("maxResolutionHint");
       const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -6539,6 +6622,21 @@ var require_ui = __commonJS({
         tagsTitle.textContent = i18next.t("deps.tagsTitle");
       if (tagsNote)
         tagsNote.textContent = i18next.t("deps.tagsNote");
+      if (twTagsTitle)
+        twTagsTitle.textContent = i18next.t("deps.twTagsTitle");
+      if (twTagsHint)
+        twTagsHint.textContent = i18next.t("deps.twTagsHint");
+      if (twTagsNote)
+        twTagsNote.textContent = i18next.t("deps.twTagsNote");
+      const tagPrefs = Object.assign(twitterTags2.getDefaultPrefs(), twitterTagPref || {});
+      for (const [field, ids] of Object.entries(twitterTagFields)) {
+        const box = document.getElementById(ids.box);
+        if (box)
+          box.checked = tagPrefs[field] === true;
+        const label = document.getElementById(ids.label);
+        if (label)
+          label.textContent = i18next.t(`deps.${ids.label}`);
+      }
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -6986,6 +7084,14 @@ var require_en = __commonJS({
         xhsTagsLabel: "Xiaohongshu Tags",
         xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
         tagsNote: "Tags are written into Eagle when an item is imported: Xiaohongshu notes use their topics, other sites use the site identifier. Up to 30 tags per import.",
+        twTagsTitle: "Twitter Tags",
+        twTagsHint: "Pick which tweet fields are written as Eagle tags; the site tag twitter is always kept.",
+        twTagAuthorIdLabel: "Twitter ID (author numeric ID)",
+        twTagTweetIdLabel: "Tweet ID",
+        twTagScreenNameLabel: "Username (@handle)",
+        twTagTextLabel: "Tweet text",
+        twTagNameLabel: "Full name",
+        twTagsNote: "Links in tweet text are stripped and whitespace is collapsed; text longer than 120 characters is truncated. Up to 30 tags per import.",
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7189,6 +7295,14 @@ var require_zh_CN = __commonJS({
         xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",
         xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
         tagsNote: "\u6807\u7B7E\u5728\u4E0B\u8F7D\u5B8C\u6210\u5BFC\u5165 Eagle \u65F6\u5199\u5165\uFF1A\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u5199\u5165\u8BDD\u9898\u6807\u7B7E\uFF0C\u5176\u4ED6\u7AD9\u70B9\u5199\u5165\u7AD9\u70B9\u6807\u8BC6\uFF0C\u5355\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
+        twTagsTitle: "\u63A8\u7279\u6807\u7B7E",
+        twTagsHint: "\u52FE\u9009\u8981\u5199\u5165 Eagle \u6807\u7B7E\u7684\u63A8\u6587\u5B57\u6BB5\uFF0C\u7AD9\u70B9\u6807\u8BC6 twitter \u59CB\u7EC8\u5199\u5165\u3002",
+        twTagAuthorIdLabel: "\u63A8\u7279 ID\uFF08\u4F5C\u8005\u6570\u5B57 ID\uFF09",
+        twTagTweetIdLabel: "\u63A8\u6587 ID",
+        twTagScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
+        twTagTextLabel: "\u63A8\u6587\u6B63\u6587",
+        twTagNameLabel: "\u63A8\u7279\u5168\u540D",
+        twTagsNote: "\u63A8\u6587\u6B63\u6587\u4F1A\u53BB\u6389 t.co \u77ED\u94FE\u5E76\u538B\u7F29\u7A7A\u767D\uFF0C\u8D85\u8FC7 120 \u4E2A\u5B57\u7B26\u65F6\u622A\u65AD\uFF1B\u540C\u4E00\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7288,11 +7402,16 @@ var downloader = require_downloader();
 var sankakuAuth = require_sankaku_auth();
 var twitterAuth = require_twitter_auth();
 var twitterMonitor = require_twitter_monitor();
+var twitterTags = require_twitter_tags();
 var ui = require_ui();
 var isInitialized = false;
 function buildImportTags(metadata) {
   const adapterTags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag || "").trim().replace(/^#+/, "")).filter(Boolean) : [];
-  const isXiaohongshu = String(metadata.extractor || "").toLowerCase() === "xiaohongshu";
+  const extractor = String(metadata.extractor || "").toLowerCase();
+  if (extractor === "twitter") {
+    return twitterTags.buildTwitterTags(metadata, getTwitterTagPrefs());
+  }
+  const isXiaohongshu = extractor === "xiaohongshu";
   if (isXiaohongshu) {
     return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
   }
@@ -7333,6 +7452,33 @@ function getXhsTagsPref() {
 }
 function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
+}
+var TWITTER_TAGS_KEY = "eagle-video-downloader.twitterTags";
+function getTwitterTagPrefs() {
+  const raw = localStorage.getItem(TWITTER_TAGS_KEY);
+  let saved = null;
+  if (raw) {
+    try {
+      saved = JSON.parse(raw);
+    } catch (e) {
+      saved = null;
+    }
+  }
+  const prefs = twitterTags.getDefaultPrefs();
+  if (saved && typeof saved === "object") {
+    for (const field of twitterTags.FIELD_ORDER) {
+      if (typeof saved[field] === "boolean")
+        prefs[field] = saved[field];
+    }
+  }
+  return prefs;
+}
+function setTwitterTagPref(field, value) {
+  if (!twitterTags.FIELD_ORDER.includes(field))
+    return;
+  const prefs = getTwitterTagPrefs();
+  prefs[field] = value === true;
+  localStorage.setItem(TWITTER_TAGS_KEY, JSON.stringify(prefs));
 }
 function getMaxResolutionPref() {
   return localStorage.getItem(MAX_RESOLUTION_KEY) || "auto";
@@ -7502,6 +7648,21 @@ function setupEventListeners() {
     xhsTagsToggle.addEventListener("change", (e) => {
       setXhsTagsPref(e.target.checked);
     });
+  }
+  const twitterTagToggles = {
+    authorId: "twTagAuthorId",
+    tweetId: "twTagTweetId",
+    screenName: "twTagScreenName",
+    name: "twTagName",
+    text: "twTagText"
+  };
+  for (const [field, id] of Object.entries(twitterTagToggles)) {
+    const box = document.getElementById(id);
+    if (box) {
+      box.addEventListener("change", (e) => {
+        setTwitterTagPref(field, e.target.checked);
+      });
+    }
   }
   const maxResSelect = document.getElementById("maxResolutionSelect");
   if (maxResSelect) {
@@ -7723,6 +7884,7 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    twitterTagPref: getTwitterTagPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()
@@ -7958,6 +8120,7 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    twitterTagPref: getTwitterTagPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref()

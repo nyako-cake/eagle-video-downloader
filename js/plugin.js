@@ -18,6 +18,7 @@ const downloader = require("./downloader");
 const sankakuAuth = require("./sankaku-auth");
 const twitterAuth = require("./twitter-auth");
 const twitterMonitor = require("./twitter-monitor");
+const twitterTags = require("./twitter-tags");
 const ui = require("./ui");
 
 // 状态管理
@@ -25,7 +26,7 @@ let isInitialized = false;
 
 /**
  * 计算导入 Eagle 时使用的标签：
- * 小红书按偏好决定是否写入话题标签，其他站点优先用适配器标签，否则写站点名。
+ * 推特按勾选的字段生成，小红书按偏好决定是否写入话题标签，其他站点优先用适配器标签，否则写站点名。
  */
 function buildImportTags(metadata) {
   // 站点适配器可以给出更准确的标签（如小红书话题）
@@ -34,7 +35,11 @@ function buildImportTags(metadata) {
       .map((tag) => String(tag || "").trim().replace(/^#+/, ""))
       .filter(Boolean)
     : [];
-  const isXiaohongshu = String(metadata.extractor || "").toLowerCase() === "xiaohongshu";
+  const extractor = String(metadata.extractor || "").toLowerCase();
+  if (extractor === "twitter") {
+    return twitterTags.buildTwitterTags(metadata, getTwitterTagPrefs());
+  }
+  const isXiaohongshu = extractor === "xiaohongshu";
   if (isXiaohongshu) {
     // 偏好设置里关闭后，小红书笔记不写任何标签
     return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
@@ -98,6 +103,44 @@ function getXhsTagsPref() {
  */
 function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
+}
+
+// 推特来源自动标签的勾选状态（JSON：{ authorId, tweetId, screenName, name, text }）
+const TWITTER_TAGS_KEY = "eagle-video-downloader.twitterTags";
+
+/**
+ * 获取推特自动标签的勾选状态，缺失的字段回落到默认值
+ * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, name: boolean, text: boolean}}
+ */
+function getTwitterTagPrefs() {
+  const raw = localStorage.getItem(TWITTER_TAGS_KEY);
+  let saved = null;
+  if (raw) {
+    try {
+      saved = JSON.parse(raw);
+    } catch (e) {
+      saved = null;
+    }
+  }
+  const prefs = twitterTags.getDefaultPrefs();
+  if (saved && typeof saved === "object") {
+    for (const field of twitterTags.FIELD_ORDER) {
+      if (typeof saved[field] === "boolean") prefs[field] = saved[field];
+    }
+  }
+  return prefs;
+}
+
+/**
+ * 保存单个推特自动标签字段的勾选状态
+ * @param {string} field
+ * @param {boolean} value
+ */
+function setTwitterTagPref(field, value) {
+  if (!twitterTags.FIELD_ORDER.includes(field)) return;
+  const prefs = getTwitterTagPrefs();
+  prefs[field] = value === true;
+  localStorage.setItem(TWITTER_TAGS_KEY, JSON.stringify(prefs));
 }
 
 /**
@@ -322,6 +365,23 @@ function setupEventListeners() {
     xhsTagsToggle.addEventListener("change", (e) => {
       setXhsTagsPref(e.target.checked);
     });
+  }
+
+  // 推特来源自动标签复选框
+  const twitterTagToggles = {
+    authorId: "twTagAuthorId",
+    tweetId: "twTagTweetId",
+    screenName: "twTagScreenName",
+    name: "twTagName",
+    text: "twTagText",
+  };
+  for (const [field, id] of Object.entries(twitterTagToggles)) {
+    const box = document.getElementById(id);
+    if (box) {
+      box.addEventListener("change", (e) => {
+        setTwitterTagPref(field, e.target.checked);
+      });
+    }
   }
 
   // 清晰度上限选择切换
@@ -568,6 +628,7 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    twitterTagPref: getTwitterTagPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -855,6 +916,7 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    twitterTagPref: getTwitterTagPrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),

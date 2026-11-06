@@ -180,13 +180,18 @@ async function customGetInfo(url) {
   if (!tweet) return null;
 
   const text = typeof tweet.text === "string" ? tweet.text : "";
+  const author = tweet.author || {};
   const base = {
     title: buildTitle(tweet, text, statusId),
     description: text,
-    uploader: tweet.author ? tweet.author.name || tweet.author.screen_name || "Twitter" : "Twitter",
+    uploader: author.name || author.screen_name || "Twitter",
     extractor: "twitter",
     webpage_url: url,
     id: statusId,
+    // 自动标签用的作者字段：数字 ID 供「推特 ID」标签读取
+    authorId: author.id ? String(author.id) : null,
+    authorScreenName: author.screen_name || null,
+    authorName: author.name || null,
     thumbnail: tweet.media && tweet.media.videos && tweet.media.videos[0] ? tweet.media.videos[0].thumbnail_url || null : null,
   };
 

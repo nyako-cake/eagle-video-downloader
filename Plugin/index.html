@@ -1587,6 +1587,38 @@
                 </div>
                 <p class="setting-note" id="tagsNote">Tags are written into Eagle when an item is imported.</p>
               </div>
+
+              <div class="settings-card">
+                <div class="settings-section-title" id="twTagsTitle">Twitter Tags</div>
+                <div class="setting-row setting-row-column">
+                  <div class="setting-info">
+                    <span id="twTagsHint" class="setting-desc">Pick which tweet fields are written as Eagle tags. The site tag twitter is always kept.</span>
+                  </div>
+                  <div class="setting-checkboxes setting-checkboxes-column no-drag">
+                    <label class="setting-check no-drag">
+                      <input type="checkbox" id="twTagAuthorId" />
+                      <span id="twTagAuthorIdLabel">Twitter ID (author numeric ID)</span>
+                    </label>
+                    <label class="setting-check no-drag">
+                      <input type="checkbox" id="twTagTweetId" checked />
+                      <span id="twTagTweetIdLabel">Tweet ID</span>
+                    </label>
+                    <label class="setting-check no-drag">
+                      <input type="checkbox" id="twTagScreenName" checked />
+                      <span id="twTagScreenNameLabel">Username (@handle)</span>
+                    </label>
+                    <label class="setting-check no-drag">
+                      <input type="checkbox" id="twTagText" />
+                      <span id="twTagTextLabel">Tweet text</span>
+                    </label>
+                    <label class="setting-check no-drag">
+                      <input type="checkbox" id="twTagName" />
+                      <span id="twTagNameLabel">Full name</span>
+                    </label>
+                  </div>
+                </div>
+                <p class="setting-note" id="twTagsNote">Links in tweet text are stripped and whitespace is collapsed.</p>
+              </div>
             </div>
 
             <!-- Accounts Panel -->
