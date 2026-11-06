@@ -1136,8 +1136,11 @@
     .setting-check-columns {
       display: flex;
       align-items: stretch;
-      gap: 6px;
-      width: 100%;
+      /* 列与竖分隔线之间、左右两侧与卡片边框之间留出同样宽的空隙 */
+      gap: 14px;
+      margin: 0 -12px;
+      padding: 0 6px;
+      width: calc(100% + 24px);
     }
 
     .setting-check-group {
@@ -1149,6 +1152,7 @@
       gap: 6px;
     }
 
+    /* 两条竖分隔线用同一套规则，粗细都是 1px、上下都贴齐同一个列高，长短保持一致 */
     .setting-check-group + .setting-check-group::before {
       content: "";
       position: absolute;
@@ -1159,17 +1163,17 @@
       background: var(--border-strong);
     }
 
-    /* 标签列里两条标签之间的锁链按钮：点了把下一条并到上一条 */
+    /* 标签列里两条标签之间的锁链按钮：点了把下一条并到上一条
+       零高度槽位，只占掉一个行距，不会把上下两条标签撑开 */
     .setting-check-join {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: relative;
+      flex: none;
       width: 100%;
-      height: 12px;
+      height: 0;
       margin: -3px 0;
     }
 
-    /* display: flex 会压过 hidden 属性的默认样式，这里显式补齐 */
+    /* display: block 会压过 hidden 属性的默认样式，这里显式补齐 */
     .setting-check-join[hidden] {
       display: none;
     }
@@ -1180,19 +1184,25 @@
       background: var(--brand-soft);
     }
 
+    /* 竖向胶囊，压在两条标签之间那条空隙上，不占额外高度 */
     .setting-join-btn {
-      width: 28px;
-      height: 12px;
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 16px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 5px;
       background: var(--bg-input);
       color: var(--fg3);
       cursor: pointer;
       line-height: 1;
+      z-index: 2;
     }
 
     .setting-join-btn:hover {
@@ -1200,9 +1210,11 @@
       border-color: var(--border-strong);
     }
 
+    /* 锁链图标转 90°，做成竖向的链环 */
     .setting-join-btn svg {
-      width: 11px;
-      height: 11px;
+      width: 10px;
+      height: 10px;
+      transform: rotate(90deg);
       pointer-events: none;
     }
 
