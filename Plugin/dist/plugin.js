@@ -6664,8 +6664,8 @@ var require_ui = __commonJS({
       const twNameTitle = document.getElementById("twNameTitle");
       const twNameHint = document.getElementById("twNameHint");
       const twNameNote = document.getElementById("twNameNote");
-      const twAnTitle = document.getElementById("twAnTitle");
-      const twAnHint = document.getElementById("twAnHint");
+      const twNameColumnTitle = document.getElementById("twNameColumnTitle");
+      const twAnColumnTitle = document.getElementById("twAnColumnTitle");
       const twAnNote = document.getElementById("twAnNote");
       const twitterNameFields = {
         authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
@@ -6736,12 +6736,12 @@ var require_ui = __commonJS({
           label.textContent = i18next.t(`deps.${ids.label}`);
       }
       applyTwitterNameOrder(namePrefs.order);
-      if (twAnTitle)
-        twAnTitle.textContent = i18next.t("deps.twAnTitle");
-      if (twAnHint)
-        twAnHint.textContent = i18next.t("deps.twAnHint");
+      if (twAnColumnTitle)
+        twAnColumnTitle.textContent = i18next.t("deps.twAnColumnTitle");
       if (twAnNote)
         twAnNote.textContent = i18next.t("deps.twAnNote");
+      if (twNameColumnTitle)
+        twNameColumnTitle.textContent = i18next.t("deps.twNameColumnTitle");
       const annotationPrefs = Object.assign(twitterName2.getDefaultPrefs(), twitterAnnotationPref || {});
       for (const [field, ids] of Object.entries(twitterAnnotationFields)) {
         const box = document.getElementById(ids.box);
@@ -7227,20 +7227,21 @@ var require_en = __commonJS({
         xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
         tagsNote: "Tags are written into Eagle when an item is imported: Xiaohongshu notes use their topics, other sites use the site identifier. Up to 30 tags per import.",
         twNameTitle: "Twitter Info Rules",
-        twNameHint: 'Pick the tweet fields used to build the imported item name, then use the arrows on each row to set the order. With nothing selected the default "tweet text - @handle" is kept.',
-        twNameAuthorIdLabel: "Twitter ID (author numeric ID)",
+        twNameHint: `The left column builds the imported item name, the right column builds its annotation; each row's arrows set the order. With nothing selected the name keeps "tweet text - @handle" and the annotation keeps the plain tweet text. Twitter ID means the author numeric ID.`,
+        twNameColumnTitle: "Name",
+        twNameAuthorIdLabel: "Twitter ID",
         twNameTweetIdLabel: "Tweet ID",
-        twNameScreenNameLabel: "Username (@handle)",
-        twNameTextLabel: "Tweet text",
+        twNameScreenNameLabel: "Username",
+        twNameTextLabel: "Text",
         twNameFullNameLabel: "Full name",
-        twNameNote: 'Fields are joined with " - " in the order you arrange; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, " (1/N)" is appended to keep the names unique.',
-        twAnTitle: "Twitter Annotation Rules",
-        twAnHint: "Pick the tweet fields used to build the imported item annotation, and use the arrows to set their order. With nothing selected the annotation keeps the plain tweet text.",
-        twAnAuthorIdLabel: "Twitter ID (author numeric ID)",
+        twNameNote: 'Name: fields joined with " - " in the order you arrange, illegal filename characters replaced, " (1/N)" appended when one tweet yields several files.',
+        twAnColumnTitle: "Annotation",
+        twAnAuthorIdLabel: "Twitter ID",
         twAnTweetIdLabel: "Tweet ID",
-        twAnScreenNameLabel: "Username (@handle)",
-        twAnTextLabel: "Tweet text",
+        twAnScreenNameLabel: "Username",
+        twAnTextLabel: "Text",
         twAnFullNameLabel: "Full name",
+        twAnNote: 'Annotation: joined with " - " in the order you arrange, up to 5000 characters; checking any field replaces the plain tweet text, so check "Text" to keep it.',
         twAnNote: 'Annotation is joined with " - " in the order you arrange and truncated past 5000 characters. Checking any field replaces the plain tweet text, so check "Tweet text" if you want to keep it.',
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
@@ -7446,20 +7447,21 @@ var require_zh_CN = __commonJS({
         xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
         tagsNote: "\u6807\u7B7E\u5728\u4E0B\u8F7D\u5B8C\u6210\u5BFC\u5165 Eagle \u65F6\u5199\u5165\uFF1A\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u5199\u5165\u8BDD\u9898\u6807\u7B7E\uFF0C\u5176\u4ED6\u7AD9\u70B9\u5199\u5165\u7AD9\u70B9\u6807\u8BC6\uFF0C\u5355\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
         twNameTitle: "\u63A8\u7279\u4FE1\u606F\u89C4\u5219",
-        twNameHint: "\u52FE\u9009\u7528\u4E8E\u62FC\u63A5\u5BFC\u5165\u7D20\u6750\u540D\u79F0\u7684\u63A8\u6587\u5B57\u6BB5\uFF0C\u5E76\u7528\u6BCF\u884C\u7684\u7BAD\u5934\u8C03\u6574\u62FC\u63A5\u987A\u5E8F\uFF1B\u4E00\u9879\u90FD\u4E0D\u52FE\u65F6\u6CBF\u7528\u9ED8\u8BA4\u6807\u9898\u300C\u63A8\u6587\u6B63\u6587 - @\u7528\u6237\u540D\u300D\u3002",
-        twNameAuthorIdLabel: "\u63A8\u7279 ID\uFF08\u4F5C\u8005\u6570\u5B57 ID\uFF09",
+        twNameHint: "\u5DE6\u4FA7\u52FE\u9009\u51B3\u5B9A\u7D20\u6750\u540D\u79F0\uFF0C\u53F3\u4FA7\u51B3\u5B9A\u7D20\u6750\u6CE8\u91CA\uFF0C\u6BCF\u884C\u7BAD\u5934\u8C03\u6574\u5404\u81EA\u987A\u5E8F\uFF1B\u5168\u4E0D\u52FE\u65F6\u540D\u79F0\u6CBF\u7528\u300C\u63A8\u6587\u6B63\u6587 - @\u7528\u6237\u540D\u300D\u3001\u6CE8\u91CA\u6CBF\u7528\u63A8\u6587\u6B63\u6587\u3002\u63A8\u7279 ID \u5373\u4F5C\u8005\u6570\u5B57 ID\u3002",
+        twNameColumnTitle: "\u540D\u79F0",
+        twNameAuthorIdLabel: "\u63A8\u7279 ID",
         twNameTweetIdLabel: "\u63A8\u6587 ID",
-        twNameScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
-        twNameTextLabel: "\u63A8\u6587\u6B63\u6587",
-        twNameFullNameLabel: "\u63A8\u7279\u5168\u540D",
-        twNameNote: "\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
-        twAnTitle: "\u63A8\u7279\u6CE8\u91CA\u89C4\u5219",
-        twAnHint: "\u52FE\u9009\u7528\u4E8E\u62FC\u63A5\u5BFC\u5165\u7D20\u6750\u6CE8\u91CA\u7684\u63A8\u6587\u5B57\u6BB5\uFF0C\u5E76\u7528\u6BCF\u884C\u7684\u7BAD\u5934\u8C03\u6574\u62FC\u63A5\u987A\u5E8F\uFF1B\u4E00\u9879\u90FD\u4E0D\u52FE\u65F6\u6CE8\u91CA\u6CBF\u7528\u63A8\u6587\u6B63\u6587\u3002",
-        twAnAuthorIdLabel: "\u63A8\u7279 ID\uFF08\u4F5C\u8005\u6570\u5B57 ID\uFF09",
+        twNameScreenNameLabel: "\u7528\u6237\u540D",
+        twNameTextLabel: "\u6B63\u6587",
+        twNameFullNameLabel: "\u5168\u540D",
+        twNameNote: "\u540D\u79F0\uFF1A\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
+        twAnColumnTitle: "\u6CE8\u91CA",
+        twAnAuthorIdLabel: "\u63A8\u7279 ID",
         twAnTweetIdLabel: "\u63A8\u6587 ID",
-        twAnScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
-        twAnTextLabel: "\u63A8\u6587\u6B63\u6587",
-        twAnFullNameLabel: "\u63A8\u7279\u5168\u540D",
+        twAnScreenNameLabel: "\u7528\u6237\u540D",
+        twAnTextLabel: "\u6B63\u6587",
+        twAnFullNameLabel: "\u5168\u540D",
+        twAnNote: "\u6CE8\u91CA\uFF1A\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 5000 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u52FE\u9009\u4EFB\u610F\u5B57\u6BB5\u540E\u6CE8\u91CA\u53EA\u7531\u52FE\u9009\u7684\u5B57\u6BB5\u7EC4\u6210\uFF0C\u4E0D\u518D\u81EA\u52A8\u5E26\u63A8\u6587\u6B63\u6587\uFF0C\u60F3\u4FDD\u7559\u6B63\u6587\u8BF7\u52FE\u9009\u300C\u6B63\u6587\u300D\u3002",
         twAnNote: "\u6CE8\u91CA\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 5000 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u52FE\u9009\u4EFB\u610F\u5B57\u6BB5\u540E\u6CE8\u91CA\u53EA\u7531\u52FE\u9009\u7684\u5B57\u6BB5\u7EC4\u6210\uFF0C\u4E0D\u518D\u81EA\u52A8\u5E26\u63A8\u6587\u6B63\u6587\uFF0C\u60F3\u4FDD\u7559\u6B63\u6587\u8BF7\u52FE\u9009\u300C\u63A8\u6587\u6B63\u6587\u300D\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",

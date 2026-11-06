@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.10.0)
+## What's New (3.2.0 - 3.10.1)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -60,11 +60,10 @@ Main changes in this branch compared to upstream 3.0.0.
 - The settings tab bar gets a new "Import Info" tab, placed right after Settings, that groups the tags written into Eagle on import and the imported item naming rules
 - The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
 - The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
-- Twitter info rules: a "Twitter Info Rules" card on the same tab uses checkboxes to pick the fields that build the imported item name - Twitter ID (author numeric ID), Tweet ID, username (@handle), tweet text and full name
-- Each field row has move-up/move-down buttons, and the name is joined with " - " in the order you arrange; with nothing selected the default "tweet text - @handle" is kept, names are truncated past 150 characters and illegal filename characters are replaced
-- When one tweet has several images or videos, " (1/N)" is appended to the imported item name so the files do not collide
-- Twitter annotation rules: a "Twitter Annotation Rules" card on the same tab uses the same five checkboxes and arrows to build the imported item annotation, with its own selection and order
-- With nothing selected the annotation keeps the plain tweet text; once any field is selected the annotation is built only from the selected fields, joined with " - " in your order, so check "Tweet text" to keep it; illegal filename characters are not stripped and the total is capped at 5000 characters
+- Twitter info rules: the "Twitter Info Rules" card on the same tab is split into two columns - "Name" on the left builds the imported item name, "Annotation" on the right builds the annotation, each offering the same five fields: Twitter ID (author numeric ID), Tweet ID, username (@handle), text and full name
+- Each row has move-up/move-down buttons and the two columns keep their own selection and order; both join fields with " - ", and the name column's order is the filename order
+- With nothing selected the name keeps "tweet text - @handle", is truncated past 150 characters and has illegal filename characters replaced; " (1/N)" is appended to the item name when one tweet yields several files
+- With nothing selected the annotation keeps the plain tweet text; once any field is selected it is built only from the selected fields, so check "Text" to keep the text; illegal filename characters are not stripped and the total is capped at 5000 characters
 
 ### Bridge and LAN
 

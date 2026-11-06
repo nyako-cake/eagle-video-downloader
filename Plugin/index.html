@@ -1132,6 +1132,29 @@
       cursor: default;
     }
 
+    /* 推特信息规则：名称与注释两列并排，各自独立排序 */
+    .setting-check-columns {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      width: 100%;
+    }
+
+    .setting-check-group {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-check-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fg2);
+      padding: 0 4px;
+    }
+
     .setting-checkboxes {
       gap: 20px;
     }
@@ -1639,125 +1662,125 @@
                 <div class="settings-section-title" id="twNameTitle">Twitter Info Rules</div>
                 <div class="setting-row setting-row-column">
                   <div class="setting-info">
-                    <span id="twNameHint" class="setting-desc">Pick the tweet fields used to build the imported item name, and use the arrows to set the order they are joined in. Nothing selected keeps the default "tweet text - @handle".</span>
+                    <span id="twNameHint" class="setting-desc">The left column builds the imported item name, the right column builds its annotation; each row's arrows set the order. With nothing selected the name keeps "tweet text - @handle" and the annotation keeps the plain tweet text.</span>
                   </div>
-                  <div id="twNameFields" class="setting-checkboxes setting-checkboxes-column no-drag">
-                    <div class="setting-check-row no-drag" data-field="authorId">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twNameAuthorId" />
-                        <span id="twNameAuthorIdLabel">Twitter ID (author numeric ID)</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                  <div class="setting-check-columns no-drag">
+                    <div class="setting-check-group no-drag">
+                      <div class="setting-check-title" id="twNameColumnTitle">Name</div>
+                      <div id="twNameFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                        <div class="setting-check-row no-drag" data-field="authorId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twNameAuthorId" />
+                            <span id="twNameAuthorIdLabel">Twitter ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="tweetId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twNameTweetId" />
+                            <span id="twNameTweetIdLabel">Tweet ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="screenName">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twNameScreenName" />
+                            <span id="twNameScreenNameLabel">Username</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="text">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twNameText" />
+                            <span id="twNameTextLabel">Text</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="name">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twNameFullName" />
+                            <span id="twNameFullNameLabel">Full name</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div class="setting-check-row no-drag" data-field="tweetId">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twNameTweetId" />
-                        <span id="twNameTweetIdLabel">Tweet ID</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="screenName">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twNameScreenName" />
-                        <span id="twNameScreenNameLabel">Username (@handle)</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="text">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twNameText" />
-                        <span id="twNameTextLabel">Tweet text</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="name">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twNameFullName" />
-                        <span id="twNameFullNameLabel">Full name</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                    <div class="setting-check-group no-drag">
+                      <div class="setting-check-title" id="twAnColumnTitle">Annotation</div>
+                      <div id="twAnnotationFields" class="setting-checkboxes setting-checkboxes-column no-drag">
+                        <div class="setting-check-row no-drag" data-field="authorId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twAnAuthorId" />
+                            <span id="twAnAuthorIdLabel">Twitter ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="tweetId">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twAnTweetId" />
+                            <span id="twAnTweetIdLabel">Tweet ID</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="screenName">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twAnScreenName" />
+                            <span id="twAnScreenNameLabel">Username</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="text">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twAnText" />
+                            <span id="twAnTextLabel">Text</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
+                        <div class="setting-check-row no-drag" data-field="name">
+                          <label class="setting-check no-drag">
+                            <input type="checkbox" id="twAnFullName" />
+                            <span id="twAnFullNameLabel">Full name</span>
+                          </label>
+                          <div class="setting-order-actions no-drag">
+                            <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
+                            <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p class="setting-note" id="twNameNote">Fields are joined with " - " in the order you arrange; illegal filename characters are replaced; several images or videos in one tweet get " (1/N)" appended.</p>
+                <p class="setting-note" id="twNameNote">Name: fields joined with " - " in the order you arrange, illegal filename characters replaced, " (1/N)" appended when one tweet yields several files.</p>
+                <p class="setting-note" id="twAnNote">Annotation: joined with " - " in the order you arrange, up to 5000 characters; checking any field replaces the plain tweet text, so check "Text" to keep it.</p>
               </div>
 
-              <div class="settings-card">
-                <div class="settings-section-title" id="twAnTitle">Twitter Annotation Rules</div>
-                <div class="setting-row setting-row-column">
-                  <div class="setting-info">
-                    <span id="twAnHint" class="setting-desc">Pick the tweet fields used to build the imported item annotation, and use the arrows to set their order. Nothing selected keeps the plain tweet text.</span>
-                  </div>
-                  <div id="twAnnotationFields" class="setting-checkboxes setting-checkboxes-column no-drag">
-                    <div class="setting-check-row no-drag" data-field="authorId">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twAnAuthorId" />
-                        <span id="twAnAuthorIdLabel">Twitter ID (author numeric ID)</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="tweetId">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twAnTweetId" />
-                        <span id="twAnTweetIdLabel">Tweet ID</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="screenName">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twAnScreenName" />
-                        <span id="twAnScreenNameLabel">Username (@handle)</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="text">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twAnText" />
-                        <span id="twAnTextLabel">Tweet text</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                    <div class="setting-check-row no-drag" data-field="name">
-                      <label class="setting-check no-drag">
-                        <input type="checkbox" id="twAnFullName" />
-                        <span id="twAnFullNameLabel">Full name</span>
-                      </label>
-                      <div class="setting-order-actions no-drag">
-                        <button type="button" class="setting-order-btn" data-move="up" aria-label="Move up">↑</button>
-                        <button type="button" class="setting-order-btn" data-move="down" aria-label="Move down">↓</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <p class="setting-note" id="twAnNote">Annotation is joined with " - " in the order you arrange. Checking any field replaces the plain tweet text, so check "Tweet text" to keep it; up to 5000 characters.</p>
-              </div>
             </div>
 
             <!-- Accounts Panel -->

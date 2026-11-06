@@ -553,8 +553,8 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const twNameTitle = document.getElementById("twNameTitle");
   const twNameHint = document.getElementById("twNameHint");
   const twNameNote = document.getElementById("twNameNote");
-  const twAnTitle = document.getElementById("twAnTitle");
-  const twAnHint = document.getElementById("twAnHint");
+  const twNameColumnTitle = document.getElementById("twNameColumnTitle");
+  const twAnColumnTitle = document.getElementById("twAnColumnTitle");
   const twAnNote = document.getElementById("twAnNote");
   const twitterNameFields = {
     authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
@@ -612,9 +612,9 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   }
   applyTwitterNameOrder(namePrefs.order);
 
-  if (twAnTitle) twAnTitle.textContent = i18next.t("deps.twAnTitle");
-  if (twAnHint) twAnHint.textContent = i18next.t("deps.twAnHint");
+  if (twAnColumnTitle) twAnColumnTitle.textContent = i18next.t("deps.twAnColumnTitle");
   if (twAnNote) twAnNote.textContent = i18next.t("deps.twAnNote");
+  if (twNameColumnTitle) twNameColumnTitle.textContent = i18next.t("deps.twNameColumnTitle");
   const annotationPrefs = Object.assign(twitterName.getDefaultPrefs(), twitterAnnotationPref || {});
   for (const [field, ids] of Object.entries(twitterAnnotationFields)) {
     const box = document.getElementById(ids.box);
