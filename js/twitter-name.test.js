@@ -1,0 +1,77 @@
+// node js/twitter-name.test.js
+const assert = require("assert");
+const { buildTwitterName, sanitizeName, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
+
+const tweetMeta = {
+  authorId: "44196397",
+  id: "1789000000000000000",
+  authorScreenName: "nyako_cake",
+  authorName: "Nyako",
+  description: "今日份的猫 https://t.co/abc123 好可爱",
+  extractor: "twitter",
+};
+
+// 一个字段都没勾：返回空串，调用方回落到默认标题
+assert.strictEqual(buildTwitterName(tweetMeta), "");
+assert.strictEqual(
+  buildTwitterName(tweetMeta, { authorId: false, tweetId: false, screenName: false, name: false, text: false }),
+  ""
+);
+
+// 只勾用户名字段
+assert.strictEqual(buildTwitterName(tweetMeta, { screenName: true }), "@nyako_cake");
+
+// 只勾推文正文：t.co 短链去掉，空白折叠
+assert.strictEqual(buildTwitterName(tweetMeta, { text: true }), "今日份的猫 好可爱");
+
+// 前后两个字段按固定顺序拼接，与勾选顺序无关
+assert.strictEqual(
+  buildTwitterName(tweetMeta, { screenName: true, name: true }),
+  "@nyako_cake - Nyako",
+  "screenName comes before full name regardless of check order"
+);
+
+// 五项全开：固定顺序 作者ID → 推文ID → 用户名 → 正文 → 全名
+assert.strictEqual(
+  buildTwitterName(tweetMeta, { authorId: true, tweetId: true, screenName: true, name: true, text: true }),
+  "44196397 - 1789000000000000000 - @nyako_cake - 今日份的猫 好可爱 - Nyako"
+);
+
+// 文件名非法字符被替换，不会留下冒号或斜杠
+assert.strictEqual(sanitizeName("a/b:c*d?e\"f<g>h|i"), "a b c d e f g h i");
+assert.strictEqual(buildTwitterName({ description: "标题/带:非法*字符" }, { text: true }), "标题 带 非法 字符");
+
+// 超长正文按字段上限截断并补省略号
+const longText = "猫".repeat(FIELD_MAX_LENGTH.text + 30);
+const longName = buildTwitterName({ description: longText }, { text: true });
+assert.strictEqual(longName.length, FIELD_MAX_LENGTH.text, "text field capped before joining");
+assert(longName.endsWith("…"), "truncated field ends with ellipsis");
+
+// 多字段拼接后超过总长度上限时按 NAME_MAX_LENGTH 截断
+const manyFieldsMeta = {
+  authorId: "1".repeat(40),
+  id: "2".repeat(40),
+  authorScreenName: "user",
+  authorName: "N".repeat(60),
+  description: "猫".repeat(100),
+};
+const capped = buildTwitterName(manyFieldsMeta, { authorId: true, tweetId: true, screenName: true, name: true, text: true });
+assert.strictEqual(capped.length, NAME_MAX_LENGTH, "joined name capped at the total limit");
+
+// yt-dlp 兜底元信息：没有作者数字 ID 时该字段不参与命名
+assert.strictEqual(
+  buildTwitterName(
+    { id: "1789", uploader_id: "nyako_cake", uploader: "Nyako", description: "hi" },
+    { authorId: true, tweetId: true, screenName: true }
+  ),
+  "1789 - @nyako_cake",
+  "fallback metadata skips missing author id"
+);
+
+// 空元信息不拼出任何内容
+assert.strictEqual(buildTwitterName(null, { text: true, name: true }), "");
+
+// 用户名不会重复加 @
+assert.strictEqual(buildTwitterName({ authorScreenName: "@nyako" }, { screenName: true }), "@nyako");
+
+console.log("twitter-name: buildTwitterName checks passed");

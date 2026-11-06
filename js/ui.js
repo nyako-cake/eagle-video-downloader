@@ -6,7 +6,7 @@
 const sankakuAuth = require("./sankaku-auth");
 const twitterAuth = require("./twitter-auth");
 const twitterMonitor = require("./twitter-monitor");
-const twitterTags = require("./twitter-tags");
+const twitterName = require("./twitter-name");
 const { scopedKey } = require("./library-context");
 
 const INTERVAL_CHOICE_KEY = "eagle-video-downloader.twitterIntervalChoice";
@@ -533,9 +533,9 @@ function autoGrowTextarea(el) {
  * @param {boolean} opts.gating - 是否为「门槛模式」（依赖未就绪，强制停留在此页，隐藏返回按钮）
  * @param {boolean} opts.autoAddSourcePref - 是否自动设置 Eagle 数据来源
  * @param {boolean} opts.xhsTagsPref - 小红书下载是否写入话题标签
- * @param {Object} opts.twitterTagPref - 推特自动标签的勾选状态
+ * @param {Object} opts.twitterNamePref - 推特素材命名的勾选状态
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterTagPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnTags = document.getElementById("tabBtnTags");
@@ -549,15 +549,15 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const xhsTagsToggle = document.getElementById("xhsTagsToggle");
   const tagsTitle = document.getElementById("tagsTitle");
   const tagsNote = document.getElementById("tagsNote");
-  const twTagsTitle = document.getElementById("twTagsTitle");
-  const twTagsHint = document.getElementById("twTagsHint");
-  const twTagsNote = document.getElementById("twTagsNote");
-  const twitterTagFields = {
-    authorId: { box: "twTagAuthorId", label: "twTagAuthorIdLabel" },
-    tweetId: { box: "twTagTweetId", label: "twTagTweetIdLabel" },
-    screenName: { box: "twTagScreenName", label: "twTagScreenNameLabel" },
-    name: { box: "twTagName", label: "twTagNameLabel" },
-    text: { box: "twTagText", label: "twTagTextLabel" },
+  const twNameTitle = document.getElementById("twNameTitle");
+  const twNameHint = document.getElementById("twNameHint");
+  const twNameNote = document.getElementById("twNameNote");
+  const twitterNameFields = {
+    authorId: { box: "twNameAuthorId", label: "twNameAuthorIdLabel" },
+    tweetId: { box: "twNameTweetId", label: "twNameTweetIdLabel" },
+    screenName: { box: "twNameScreenName", label: "twNameScreenNameLabel" },
+    text: { box: "twNameText", label: "twNameTextLabel" },
+    name: { box: "twNameFullName", label: "twNameFullNameLabel" },
   };
   const maxResLabel = document.getElementById("maxResolutionLabel");
   const maxResHint = document.getElementById("maxResolutionHint");
@@ -589,13 +589,13 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (tagsTitle) tagsTitle.textContent = i18next.t("deps.tagsTitle");
   if (tagsNote) tagsNote.textContent = i18next.t("deps.tagsNote");
 
-  if (twTagsTitle) twTagsTitle.textContent = i18next.t("deps.twTagsTitle");
-  if (twTagsHint) twTagsHint.textContent = i18next.t("deps.twTagsHint");
-  if (twTagsNote) twTagsNote.textContent = i18next.t("deps.twTagsNote");
-  const tagPrefs = Object.assign(twitterTags.getDefaultPrefs(), twitterTagPref || {});
-  for (const [field, ids] of Object.entries(twitterTagFields)) {
+  if (twNameTitle) twNameTitle.textContent = i18next.t("deps.twNameTitle");
+  if (twNameHint) twNameHint.textContent = i18next.t("deps.twNameHint");
+  if (twNameNote) twNameNote.textContent = i18next.t("deps.twNameNote");
+  const namePrefs = Object.assign(twitterName.getDefaultPrefs(), twitterNamePref || {});
+  for (const [field, ids] of Object.entries(twitterNameFields)) {
     const box = document.getElementById(ids.box);
-    if (box) box.checked = tagPrefs[field] === true;
+    if (box) box.checked = namePrefs[field] === true;
     const label = document.getElementById(ids.label);
     if (label) label.textContent = i18next.t(`deps.${ids.label}`);
   }

@@ -18,7 +18,7 @@ const downloader = require("./downloader");
 const sankakuAuth = require("./sankaku-auth");
 const twitterAuth = require("./twitter-auth");
 const twitterMonitor = require("./twitter-monitor");
-const twitterTags = require("./twitter-tags");
+const twitterName = require("./twitter-name");
 const ui = require("./ui");
 
 // 状态管理
@@ -26,7 +26,7 @@ let isInitialized = false;
 
 /**
  * 计算导入 Eagle 时使用的标签：
- * 推特按勾选的字段生成，小红书按偏好决定是否写入话题标签，其他站点优先用适配器标签，否则写站点名。
+ * 小红书按偏好决定是否写入话题标签，其他站点优先用适配器标签，否则写站点名。
  */
 function buildImportTags(metadata) {
   // 站点适配器可以给出更准确的标签（如小红书话题）
@@ -35,16 +35,24 @@ function buildImportTags(metadata) {
       .map((tag) => String(tag || "").trim().replace(/^#+/, ""))
       .filter(Boolean)
     : [];
-  const extractor = String(metadata.extractor || "").toLowerCase();
-  if (extractor === "twitter") {
-    return twitterTags.buildTwitterTags(metadata, getTwitterTagPrefs());
-  }
-  const isXiaohongshu = extractor === "xiaohongshu";
+  const isXiaohongshu = String(metadata.extractor || "").toLowerCase() === "xiaohongshu";
   if (isXiaohongshu) {
     // 偏好设置里关闭后，小红书笔记不写任何标签
     return getXhsTagsPref() ? adapterTags.slice(0, 30) : [];
   }
   return adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
+}
+
+/**
+ * 计算导入 Eagle 时使用的素材名：
+ * 推特按勾选字段拼名，未勾选任何字段时沿用适配器给出的标题。
+ */
+function buildImportName(metadata) {
+  if (String(metadata.extractor || "").toLowerCase() === "twitter") {
+    const composed = twitterName.buildTwitterName(metadata, getTwitterNamePrefs());
+    if (composed) return composed;
+  }
+  return metadata.title || i18next.t("error.downloadedVideo");
 }
 
 async function importToEagle(videoPath, metadata, sourceUrl) {
@@ -53,7 +61,7 @@ async function importToEagle(videoPath, metadata, sourceUrl) {
   }
   const tags = buildImportTags(metadata);
   const importOptions = {
-    name: metadata.title || i18next.t("error.downloadedVideo"),
+    name: buildImportName(metadata),
     website: sourceUrl || undefined,
     tags,
     annotation: metadata.description ? metadata.description.slice(0, 5000) : "",
@@ -105,15 +113,15 @@ function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
 }
 
-// 推特来源自动标签的勾选状态（JSON：{ authorId, tweetId, screenName, name, text }）
-const TWITTER_TAGS_KEY = "eagle-video-downloader.twitterTags";
+// 推特素材命名的勾选状态（JSON：{ authorId, tweetId, screenName, text, name }）
+const TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
 
 /**
- * 获取推特自动标签的勾选状态，缺失的字段回落到默认值
- * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, name: boolean, text: boolean}}
+ * 获取推特素材命名的勾选状态，缺失的字段回落到默认值
+ * @returns {{authorId: boolean, tweetId: boolean, screenName: boolean, text: boolean, name: boolean}}
  */
-function getTwitterTagPrefs() {
-  const raw = localStorage.getItem(TWITTER_TAGS_KEY);
+function getTwitterNamePrefs() {
+  const raw = localStorage.getItem(TWITTER_NAME_KEY);
   let saved = null;
   if (raw) {
     try {
@@ -122,9 +130,9 @@ function getTwitterTagPrefs() {
       saved = null;
     }
   }
-  const prefs = twitterTags.getDefaultPrefs();
+  const prefs = twitterName.getDefaultPrefs();
   if (saved && typeof saved === "object") {
-    for (const field of twitterTags.FIELD_ORDER) {
+    for (const field of twitterName.FIELD_ORDER) {
       if (typeof saved[field] === "boolean") prefs[field] = saved[field];
     }
   }
@@ -132,15 +140,15 @@ function getTwitterTagPrefs() {
 }
 
 /**
- * 保存单个推特自动标签字段的勾选状态
+ * 保存单个推特命名字段的勾选状态
  * @param {string} field
  * @param {boolean} value
  */
-function setTwitterTagPref(field, value) {
-  if (!twitterTags.FIELD_ORDER.includes(field)) return;
-  const prefs = getTwitterTagPrefs();
+function setTwitterNamePref(field, value) {
+  if (!twitterName.FIELD_ORDER.includes(field)) return;
+  const prefs = getTwitterNamePrefs();
   prefs[field] = value === true;
-  localStorage.setItem(TWITTER_TAGS_KEY, JSON.stringify(prefs));
+  localStorage.setItem(TWITTER_NAME_KEY, JSON.stringify(prefs));
 }
 
 /**
@@ -367,19 +375,19 @@ function setupEventListeners() {
     });
   }
 
-  // 推特来源自动标签复选框
-  const twitterTagToggles = {
-    authorId: "twTagAuthorId",
-    tweetId: "twTagTweetId",
-    screenName: "twTagScreenName",
-    name: "twTagName",
-    text: "twTagText",
+  // 推特素材命名复选框
+  const twitterNameToggles = {
+    authorId: "twNameAuthorId",
+    tweetId: "twNameTweetId",
+    screenName: "twNameScreenName",
+    text: "twNameText",
+    name: "twNameFullName",
   };
-  for (const [field, id] of Object.entries(twitterTagToggles)) {
+  for (const [field, id] of Object.entries(twitterNameToggles)) {
     const box = document.getElementById(id);
     if (box) {
       box.addEventListener("change", (e) => {
-        setTwitterTagPref(field, e.target.checked);
+        setTwitterNamePref(field, e.target.checked);
       });
     }
   }
@@ -628,7 +636,7 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
-    twitterTagPref: getTwitterTagPrefs(),
+    twitterNamePref: getTwitterNamePrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -916,7 +924,7 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
-    twitterTagPref: getTwitterTagPrefs(),
+    twitterNamePref: getTwitterNamePrefs(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),

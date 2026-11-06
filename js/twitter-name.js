@@ -1,40 +1,41 @@
 /**
- * 推特 / X 来源自动标签。
+ * 推特 / X 来源的导入素材命名。
  *
- * 按用户勾选的字段生成 Eagle 标签：站点标识 twitter 始终写入，
- * 作者数字 ID / 推文 ID / 用户名 / 推特全名 / 推文正文由开关控制。
- * 推文正文会去掉 t.co 短链并压缩空白，超长时截断，避免生成难以检索的超长标签。
+ * 按用户勾选的字段拼成 Eagle 素材名：推特 ID（作者数字 ID）、推文 ID、
+ * 用户名、推文正文、推特全名，顺序固定并用「 - 」连接。
+ * 一个字段都没勾时返回空串，交由调用方回落到默认标题（推文正文 - @用户名）。
  */
 
-const SITE_TAG = "twitter";
-
-/** 各字段的标签长度上限：标识类字段保持原样，正文按可检索性截断 */
+/** 各字段参与命名时的长度上限，避免正文过长把文件名撑爆 */
 const FIELD_MAX_LENGTH = {
   authorId: 40,
   tweetId: 40,
   screenName: 40,
   name: 60,
-  text: 120,
+  text: 100,
 };
 
-/** 默认只开「用户名」与「推文 ID」，其余字段按需勾选 */
+/** 默认全部不勾：不改变现有命名（推文正文 - @用户名） */
 const DEFAULT_PREFS = {
   authorId: false,
-  tweetId: true,
-  screenName: true,
+  tweetId: false,
+  screenName: false,
   name: false,
   text: false,
 };
 
-/** 标签写入顺序固定，与勾选状态无关 */
-const FIELD_ORDER = ["authorId", "tweetId", "screenName", "name", "text"];
+/** 字段拼接顺序固定，与勾选顺序无关：推特 ID → 推文 ID → 用户名 → 推文正文 → 推特全名 */
+const FIELD_ORDER = ["authorId", "tweetId", "screenName", "text", "name"];
+
+/** 拼接后的总长度上限 */
+const NAME_MAX_LENGTH = 150;
 
 function getDefaultPrefs() {
   return Object.assign({}, DEFAULT_PREFS);
 }
 
 /**
- * 清洗标签值：去 t.co 短链、折叠空白，超长截断并补省略号
+ * 清洗单个字段值：去 t.co 短链、折叠空白、超长截断
  * @param {*} raw
  * @param {number} maxLength
  * @returns {string}
@@ -50,6 +51,19 @@ function cleanValue(raw, maxLength) {
     value = value.slice(0, maxLength - 1).trimEnd() + "…";
   }
   return value;
+}
+
+/**
+ * 去掉 Windows / macOS 文件名非法字符，并清理首尾的空格与点
+ * @param {string} value
+ * @returns {string}
+ */
+function sanitizeName(value) {
+  return String(value == null ? "" : value)
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s.]+|[\s.]+$/g, "");
 }
 
 /**
@@ -70,29 +84,32 @@ function fieldValues(metadata) {
 }
 
 /**
- * 生成推特素材的 Eagle 标签
+ * 生成推特素材名
  * @param {Object} metadata 下载元信息
  * @param {Object} prefs 勾选状态 { authorId, tweetId, screenName, name, text }
- * @returns {string[]}
+ * @returns {string} 空串表示未勾选任何字段，调用方应回落到默认标题
  */
-function buildTwitterTags(metadata, prefs) {
+function buildTwitterName(metadata, prefs) {
   const enabled = Object.assign(getDefaultPrefs(), prefs || {});
   const values = fieldValues(metadata);
-  const tags = [SITE_TAG];
+  const parts = [];
   for (const field of FIELD_ORDER) {
     if (!enabled[field]) continue;
     const value = values[field];
-    if (value && !tags.includes(value)) tags.push(value);
+    if (value) parts.push(value);
   }
-  return tags.slice(0, 30);
+  if (!parts.length) return "";
+  const joined = sanitizeName(parts.join(" - "));
+  return joined.length > NAME_MAX_LENGTH ? joined.slice(0, NAME_MAX_LENGTH).trimEnd() : joined;
 }
 
 module.exports = {
-  SITE_TAG,
   DEFAULT_PREFS,
   FIELD_ORDER,
   FIELD_MAX_LENGTH,
+  NAME_MAX_LENGTH,
   getDefaultPrefs,
-  buildTwitterTags,
+  buildTwitterName,
   cleanValue,
+  sanitizeName,
 };
