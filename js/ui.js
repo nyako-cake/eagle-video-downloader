@@ -386,12 +386,13 @@ function updateDepsBadge(hasNotice) {
 }
 
 /**
- * 切换子页面分栏（Settings / Dependencies）
- * @param {'settings' | 'dependencies'} tabName
+ * 切换子页面分栏（Settings / Auto Tags / Dependencies / Accounts）
+ * @param {'settings' | 'tags' | 'dependencies' | 'account'} tabName
  */
 function switchSubpageTab(tabName) {
   const tabs = {
     settings: { btn: document.getElementById("tabBtnSettings"), panel: document.getElementById("settingsPanel") },
+    tags: { btn: document.getElementById("tabBtnTags"), panel: document.getElementById("tagsPanel") },
     dependencies: { btn: document.getElementById("tabBtnDeps"), panel: document.getElementById("depsPanel") },
     account: { btn: document.getElementById("tabBtnAccount"), panel: document.getElementById("accountPanel") },
   };
@@ -527,7 +528,7 @@ function autoGrowTextarea(el) {
 /**
  * 显示偏好设置与依赖管理页面
  * @param {Object} opts
- * @param {'settings' | 'dependencies'} opts.tab - 初始标签页
+ * @param {'settings' | 'tags' | 'dependencies' | 'account'} opts.tab - 初始标签页
  * @param {boolean} opts.gating - 是否为「门槛模式」（依赖未就绪，强制停留在此页，隐藏返回按钮）
  * @param {boolean} opts.autoAddSourcePref - 是否自动设置 Eagle 数据来源
  * @param {boolean} opts.xhsTagsPref - 小红书下载是否写入话题标签
@@ -535,6 +536,7 @@ function autoGrowTextarea(el) {
 function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
+  const tabBtnTags = document.getElementById("tabBtnTags");
   const tabBtnDeps = document.getElementById("tabBtnDeps");
   const tabBtnAccount = document.getElementById("tabBtnAccount");
   const autoAddLabel = document.getElementById("autoAddSourceLabel");
@@ -543,6 +545,8 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const xhsTagsLabel = document.getElementById("xhsTagsLabel");
   const xhsTagsHint = document.getElementById("xhsTagsHint");
   const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+  const tagsTitle = document.getElementById("tagsTitle");
+  const tagsNote = document.getElementById("tagsNote");
   const maxResLabel = document.getElementById("maxResolutionLabel");
   const maxResHint = document.getElementById("maxResolutionHint");
   const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -562,6 +566,7 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const followThemeHint = document.getElementById("followThemeHint");
 
   if (tabBtnSettings) tabBtnSettings.textContent = i18next.t("deps.tabSettings");
+  if (tabBtnTags) tabBtnTags.textContent = i18next.t("deps.tabTags");
   if (tabBtnDeps) tabBtnDeps.textContent = i18next.t("deps.tabDependencies");
   if (autoAddLabel) autoAddLabel.textContent = i18next.t("deps.autoAddSourceLabel");
   if (autoAddHint) autoAddHint.textContent = i18next.t("deps.autoAddSourceHint");
@@ -569,6 +574,8 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (xhsTagsLabel) xhsTagsLabel.textContent = i18next.t("deps.xhsTagsLabel");
   if (xhsTagsHint) xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
   if (xhsTagsToggle) xhsTagsToggle.checked = xhsTagsPref !== false;
+  if (tagsTitle) tagsTitle.textContent = i18next.t("deps.tagsTitle");
+  if (tagsNote) tagsNote.textContent = i18next.t("deps.tagsNote");
 
   if (maxResLabel) maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
   if (maxResHint) maxResHint.textContent = i18next.t("deps.maxResolutionHint");

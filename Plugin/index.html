@@ -769,6 +769,13 @@
       padding: 12px 0;
     }
 
+    /* 自动标签分栏：单列卡片，卡片宽度跟随内容区，避免被长说明撑宽 */
+    #tagsPanel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     .setting-row + .setting-row {
       border-top: 1px solid var(--border);
     }
@@ -799,6 +806,15 @@
     .setting-desc {
       font-size: 10.5px;
       color: var(--fg2);
+      line-height: 1.5;
+    }
+
+    /* 说明文字：位于卡片内若干设置项之后，不占一整行开关位置 */
+    .setting-note {
+      margin: 0;
+      padding: 0 0 12px;
+      font-size: 10.5px;
+      color: var(--fg3);
       line-height: 1.5;
     }
 
@@ -1450,6 +1466,7 @@
             </button>
             <div class="subpage-tabs no-drag">
               <button id="tabBtnSettings" class="subpage-tab-btn active" data-tab="settings">Settings</button>
+              <button id="tabBtnTags" class="subpage-tab-btn" data-tab="tags">Auto Tags</button>
               <button id="tabBtnDeps" class="subpage-tab-btn" data-tab="dependencies">Dependencies</button>
               <button id="tabBtnAccount" class="subpage-tab-btn" data-tab="account">Accounts</button>
             </div>
@@ -1497,17 +1514,6 @@
                   </div>
                   <label class="switch no-drag">
                     <input type="checkbox" id="autoAddSourceToggle" checked />
-                    <span class="slider"></span>
-                  </label>
-                </div>
-
-                <div class="setting-row">
-                  <div class="setting-info">
-                    <span id="xhsTagsLabel" class="setting-title">Xiaohongshu Tags</span>
-                    <span id="xhsTagsHint" class="setting-desc">Add Xiaohongshu note topics as Eagle tags; turn off to import without tags.</span>
-                  </div>
-                  <label class="switch no-drag">
-                    <input type="checkbox" id="xhsTagsToggle" checked />
                     <span class="slider"></span>
                   </label>
                 </div>
@@ -1563,6 +1569,24 @@
                 </div>
               </div>
 
+            </div>
+
+            <!-- Auto Tags Panel -->
+            <div id="tagsPanel" class="hidden">
+              <div class="settings-card">
+                <div class="settings-section-title" id="tagsTitle">Auto Tags</div>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span id="xhsTagsLabel" class="setting-title">Xiaohongshu Tags</span>
+                    <span id="xhsTagsHint" class="setting-desc">Add Xiaohongshu note topics as Eagle tags; turn off to import without tags.</span>
+                  </div>
+                  <label class="switch no-drag">
+                    <input type="checkbox" id="xhsTagsToggle" checked />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <p class="setting-note" id="tagsNote">Tags are written into Eagle when an item is imported.</p>
+              </div>
             </div>
 
             <!-- Accounts Panel -->

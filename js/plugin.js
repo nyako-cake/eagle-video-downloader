@@ -298,6 +298,9 @@ function setupEventListeners() {
   document.getElementById("tabBtnSettings")?.addEventListener("click", () => {
     ui.switchSubpageTab("settings");
   });
+  document.getElementById("tabBtnTags")?.addEventListener("click", () => {
+    ui.switchSubpageTab("tags");
+  });
   document.getElementById("tabBtnDeps")?.addEventListener("click", () => {
     ui.switchSubpageTab("dependencies");
   });

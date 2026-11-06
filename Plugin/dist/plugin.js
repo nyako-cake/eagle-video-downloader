@@ -6362,6 +6362,7 @@ var require_ui = __commonJS({
       var _a, _b;
       const tabs = {
         settings: { btn: document.getElementById("tabBtnSettings"), panel: document.getElementById("settingsPanel") },
+        tags: { btn: document.getElementById("tabBtnTags"), panel: document.getElementById("tagsPanel") },
         dependencies: { btn: document.getElementById("tabBtnDeps"), panel: document.getElementById("depsPanel") },
         account: { btn: document.getElementById("tabBtnAccount"), panel: document.getElementById("accountPanel") }
       };
@@ -6488,6 +6489,7 @@ var require_ui = __commonJS({
     function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
+      const tabBtnTags = document.getElementById("tabBtnTags");
       const tabBtnDeps = document.getElementById("tabBtnDeps");
       const tabBtnAccount = document.getElementById("tabBtnAccount");
       const autoAddLabel = document.getElementById("autoAddSourceLabel");
@@ -6496,6 +6498,8 @@ var require_ui = __commonJS({
       const xhsTagsLabel = document.getElementById("xhsTagsLabel");
       const xhsTagsHint = document.getElementById("xhsTagsHint");
       const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+      const tagsTitle = document.getElementById("tagsTitle");
+      const tagsNote = document.getElementById("tagsNote");
       const maxResLabel = document.getElementById("maxResolutionLabel");
       const maxResHint = document.getElementById("maxResolutionHint");
       const maxResSelect = document.getElementById("maxResolutionSelect");
@@ -6515,6 +6519,8 @@ var require_ui = __commonJS({
       const followThemeHint = document.getElementById("followThemeHint");
       if (tabBtnSettings)
         tabBtnSettings.textContent = i18next.t("deps.tabSettings");
+      if (tabBtnTags)
+        tabBtnTags.textContent = i18next.t("deps.tabTags");
       if (tabBtnDeps)
         tabBtnDeps.textContent = i18next.t("deps.tabDependencies");
       if (autoAddLabel)
@@ -6529,6 +6535,10 @@ var require_ui = __commonJS({
         xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
       if (xhsTagsToggle)
         xhsTagsToggle.checked = xhsTagsPref !== false;
+      if (tagsTitle)
+        tagsTitle.textContent = i18next.t("deps.tagsTitle");
+      if (tagsNote)
+        tagsNote.textContent = i18next.t("deps.tagsNote");
       if (maxResLabel)
         maxResLabel.textContent = i18next.t("deps.maxResolutionLabel");
       if (maxResHint)
@@ -6955,6 +6965,7 @@ var require_en = __commonJS({
       deps: {
         title: "Settings & Dependencies",
         tabSettings: "Settings",
+        tabTags: "Auto Tags",
         tabDependencies: "Dependencies",
         sectionPreferences: "Preferences",
         sectionEngines: "Core Engines",
@@ -6971,8 +6982,10 @@ var require_en = __commonJS({
         themePurple: "Purple",
         autoAddSourceLabel: "Auto-set Eagle Data Source",
         autoAddSourceHint: "When enabled, original web URLs are automatically saved to Eagle items",
+        tagsTitle: "Auto Tags",
         xhsTagsLabel: "Xiaohongshu Tags",
         xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
+        tagsNote: "Tags are written into Eagle when an item is imported: Xiaohongshu notes use their topics, other sites use the site identifier. Up to 30 tags per import.",
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7155,6 +7168,7 @@ var require_zh_CN = __commonJS({
       deps: {
         title: "\u8BBE\u7F6E\u4E0E\u4F9D\u8D56\u7BA1\u7406",
         tabSettings: "\u504F\u597D\u8BBE\u7F6E",
+        tabTags: "\u81EA\u52A8\u6807\u7B7E",
         tabDependencies: "\u4F9D\u8D56\u7BA1\u7406",
         sectionPreferences: "\u504F\u597D\u8BBE\u7F6E",
         sectionEngines: "\u6838\u5FC3\u5F15\u64CE\u4F9D\u8D56",
@@ -7171,8 +7185,10 @@ var require_zh_CN = __commonJS({
         themePurple: "\u7D2B\u8272",
         autoAddSourceLabel: "\u81EA\u52A8\u8BBE\u7F6E Eagle \u6570\u636E\u6765\u6E90",
         autoAddSourceHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u89C6\u9891\u65F6\u4F1A\u81EA\u52A8\u5728 Eagle \u4E2D\u8BB0\u5F55\u539F\u59CB\u7F51\u9875 URL",
+        tagsTitle: "\u81EA\u52A8\u6807\u7B7E",
         xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",
         xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
+        tagsNote: "\u6807\u7B7E\u5728\u4E0B\u8F7D\u5B8C\u6210\u5BFC\u5165 Eagle \u65F6\u5199\u5165\uFF1A\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u5199\u5165\u8BDD\u9898\u6807\u7B7E\uFF0C\u5176\u4ED6\u7AD9\u70B9\u5199\u5165\u7AD9\u70B9\u6807\u8BC6\uFF0C\u5355\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7455,7 +7471,7 @@ function startLibraryWatcher() {
   }, 3e3);
 }
 function setupEventListeners() {
-  var _a, _b, _c;
+  var _a, _b, _c, _d;
   document.getElementById("closeButton").addEventListener("click", () => {
     saveWindowSize();
     window.close();
@@ -7466,10 +7482,13 @@ function setupEventListeners() {
   (_a = document.getElementById("tabBtnSettings")) == null ? void 0 : _a.addEventListener("click", () => {
     ui.switchSubpageTab("settings");
   });
-  (_b = document.getElementById("tabBtnDeps")) == null ? void 0 : _b.addEventListener("click", () => {
+  (_b = document.getElementById("tabBtnTags")) == null ? void 0 : _b.addEventListener("click", () => {
+    ui.switchSubpageTab("tags");
+  });
+  (_c = document.getElementById("tabBtnDeps")) == null ? void 0 : _c.addEventListener("click", () => {
     ui.switchSubpageTab("dependencies");
   });
-  (_c = document.getElementById("tabBtnAccount")) == null ? void 0 : _c.addEventListener("click", () => {
+  (_d = document.getElementById("tabBtnAccount")) == null ? void 0 : _d.addEventListener("click", () => {
     ui.switchSubpageTab("account");
   });
   const autoAddToggle = document.getElementById("autoAddSourceToggle");

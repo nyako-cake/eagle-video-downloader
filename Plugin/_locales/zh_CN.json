@@ -94,6 +94,7 @@
   "deps": {
     "title": "设置与依赖管理",
     "tabSettings": "偏好设置",
+    "tabTags": "自动标签",
     "tabDependencies": "依赖管理",
     "sectionPreferences": "偏好设置",
     "sectionEngines": "核心引擎依赖",
@@ -110,8 +111,10 @@
     "themePurple": "紫色",
     "autoAddSourceLabel": "自动设置 Eagle 数据来源",
     "autoAddSourceHint": "开启后，下载视频时会自动在 Eagle 中记录原始网页 URL",
+    "tagsTitle": "自动标签",
     "xhsTagsLabel": "小红书标签",
     "xhsTagsHint": "开启后，下载小红书笔记时会把笔记话题写入 Eagle 标签；关闭则不带任何标签",
+    "tagsNote": "标签在下载完成导入 Eagle 时写入：小红书笔记写入话题标签，其他站点写入站点标识，单次导入最多 30 个标签。",
     "maxResolutionLabel": "清晰度上限",
     "maxResolutionHint": "限制下载的最大清晰度。若目标视频无对应画质，将自动向下匹配最高可用清晰度。",
     "maxFramerateLabel": "帧率上限",

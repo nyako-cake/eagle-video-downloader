@@ -14,7 +14,7 @@ YouTube, Twitter / X, TikTok, Bilibili, Instagram, Pinterest, Dribbble, Vimeo, S
 
 Supports sites backed by yt-dlp. Install yt-dlp via the dependency manager on first launch. Uses Eagle's official FFmpeg plugin for audio/video merging. Automatically imports downloaded videos to Eagle with metadata. Supports Chinese and English interfaces with real-time progress display. Also supports downloading image-only Pinterest Pins (fetches full-resolution originals automatically).
 
-## What's New (3.2.0 - 3.6.0)
+## What's New (3.2.0 - 3.7.0)
 
 Main changes in this branch compared to upstream 3.0.0.
 
@@ -54,6 +54,12 @@ Main changes in this branch compared to upstream 3.0.0.
 - Always on top: a pin button in the header calls `eagle.window.setAlwaysOnTop` and persists the state in localStorage
 - Resizable window: minimum 360 × 420, size saved 300ms after resizing stops and immediately on close, restored on next launch
 - Remove records: hover a download item to reveal a × that removes it; active downloads cannot be removed and imported Eagle items are untouched
+
+### Auto tags
+
+- The settings tab bar gets a new "Auto Tags" tab, placed right after Settings, that groups the tags written into Eagle on import
+- The existing "Xiaohongshu Tags" switch moves into this tab and keeps its saved value, so nothing needs to be set again
+- The tab explains the rule: Xiaohongshu notes write their topics, other sites write the site identifier, up to 30 tags per import
 
 ### Bridge and LAN
 
