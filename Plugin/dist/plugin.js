@@ -4963,7 +4963,13 @@ var require_downloader = __commonJS({
               finalPath = outputPath;
             }
           }
-          results.push({ path: finalPath, metadata: videoInfo, filename: path.basename(finalPath) });
+          results.push({
+            path: finalPath,
+            metadata: videoInfo,
+            filename: path.basename(finalPath),
+            partIndex: images.length > 1 ? index + 1 : 0,
+            partTotal: images.length > 1 ? images.length : 0
+          });
         }
         return results;
       }
@@ -4982,7 +4988,13 @@ var require_downloader = __commonJS({
           await execYtDlp([videoUrl, "-o", outputPath, "--no-warnings", "--merge-output-format", "mp4"], void 0, null, false);
           if (!fs.existsSync(outputPath))
             throw new Error(i18next3.t("error.fileNotFound"));
-          multiResults.push({ path: outputPath, metadata: videoInfo, filename });
+          multiResults.push({
+            path: outputPath,
+            metadata: videoInfo,
+            filename,
+            partIndex: index + 1,
+            partTotal: directVideos.length
+          });
         }
         return multiResults;
       }
@@ -5066,10 +5078,12 @@ var require_downloader = __commonJS({
       if (newFiles.length === 0) {
         throw new Error(i18next3.t("error.fileNotFound"));
       }
-      return newFiles.map((filename) => ({
+      return newFiles.map((filename, index) => ({
         path: path.join(outputDir, filename),
         metadata: videoInfo,
-        filename
+        filename,
+        partIndex: newFiles.length > 1 ? index + 1 : 0,
+        partTotal: newFiles.length > 1 ? newFiles.length : 0
       }));
     }
     function cleanup(filePath) {
@@ -6115,6 +6129,24 @@ var require_twitter_name = __commonJS({
       const joined = sanitizeName(parts.join(" - "));
       return joined.length > NAME_MAX_LENGTH ? joined.slice(0, NAME_MAX_LENGTH).trimEnd() : joined;
     }
+    function appendPartSuffix(name, index, total, limit) {
+      const idx = Number(index) || 0;
+      const all = Number(total) || 0;
+      if (all <= 1 || idx <= 0)
+        return name;
+      const suffix = ` (${idx}/${all})`;
+      const max = Number(limit) || NAME_MAX_LENGTH;
+      const base = String(name == null ? "" : name).slice(0, Math.max(1, max - suffix.length)).trimEnd();
+      return base + suffix;
+    }
+    function composeImportName(metadata, prefs, part, fallbackTitle) {
+      const meta = metadata || {};
+      const isTwitter = String(meta.extractor || "").toLowerCase() === "twitter";
+      const composed = isTwitter ? buildTwitterName(meta, prefs) : "";
+      const base = composed || meta.title || fallbackTitle || "";
+      const limit = composed ? NAME_MAX_LENGTH : 180;
+      return appendPartSuffix(base, part && part.index, part && part.total, limit);
+    }
     module2.exports = {
       DEFAULT_PREFS,
       FIELD_ORDER,
@@ -6122,6 +6154,8 @@ var require_twitter_name = __commonJS({
       NAME_MAX_LENGTH,
       getDefaultPrefs,
       buildTwitterName,
+      appendPartSuffix,
+      composeImportName,
       cleanValue,
       sanitizeName
     };
@@ -7098,7 +7132,7 @@ var require_en = __commonJS({
         twNameScreenNameLabel: "Username (@handle)",
         twNameTextLabel: "Tweet text",
         twNameFullNameLabel: "Full name",
-        twNameNote: 'Fields are joined with " - " in the order Twitter ID, Tweet ID, username, tweet text, full name; names longer than 150 characters are truncated and illegal filename characters are replaced.',
+        twNameNote: 'Fields are joined with " - " in the order Twitter ID, Tweet ID, username, tweet text, full name; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, " (1/N)" is appended to keep the names unique.',
         maxResolutionLabel: "Max Resolution",
         maxResolutionHint: "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
         maxFramerateLabel: "Max Frame Rate",
@@ -7309,7 +7343,7 @@ var require_zh_CN = __commonJS({
         twNameScreenNameLabel: "\u7528\u6237\u540D\uFF08@handle\uFF09",
         twNameTextLabel: "\u63A8\u6587\u6B63\u6587",
         twNameFullNameLabel: "\u63A8\u7279\u5168\u540D",
-        twNameNote: "\u5B57\u6BB5\u6309\u300C\u63A8\u7279 ID \u2192 \u63A8\u6587 ID \u2192 \u7528\u6237\u540D \u2192 \u63A8\u6587\u6B63\u6587 \u2192 \u63A8\u7279\u5168\u540D\u300D\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\u3002",
+        twNameNote: "\u5B57\u6BB5\u6309\u300C\u63A8\u7279 ID \u2192 \u63A8\u6587 ID \u2192 \u7528\u6237\u540D \u2192 \u63A8\u6587\u6B63\u6587 \u2192 \u63A8\u7279\u5168\u540D\u300D\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
         maxResolutionLabel: "\u6E05\u6670\u5EA6\u4E0A\u9650",
         maxResolutionHint: "\u9650\u5236\u4E0B\u8F7D\u7684\u6700\u5927\u6E05\u6670\u5EA6\u3002\u82E5\u76EE\u6807\u89C6\u9891\u65E0\u5BF9\u5E94\u753B\u8D28\uFF0C\u5C06\u81EA\u52A8\u5411\u4E0B\u5339\u914D\u6700\u9AD8\u53EF\u7528\u6E05\u6670\u5EA6\u3002",
         maxFramerateLabel: "\u5E27\u7387\u4E0A\u9650",
@@ -7420,21 +7454,21 @@ function buildImportTags(metadata) {
   }
   return adapterTags.length ? adapterTags.slice(0, 30) : [metadata.extractor || "video"];
 }
-function buildImportName(metadata) {
-  if (String(metadata.extractor || "").toLowerCase() === "twitter") {
-    const composed = twitterName.buildTwitterName(metadata, getTwitterNamePrefs());
-    if (composed)
-      return composed;
-  }
-  return metadata.title || i18next2.t("error.downloadedVideo");
+function buildImportName(metadata, part) {
+  return twitterName.composeImportName(
+    metadata,
+    getTwitterNamePrefs(),
+    part,
+    i18next2.t("error.downloadedVideo")
+  );
 }
-async function importToEagle(videoPath, metadata, sourceUrl) {
+async function importToEagle(videoPath, metadata, sourceUrl, part) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next2.t("error.eagleApiNotAvailable"));
   }
   const tags = buildImportTags(metadata);
   const importOptions = {
-    name: buildImportName(metadata),
+    name: buildImportName(metadata, part),
     website: sourceUrl || void 0,
     tags,
     annotation: metadata.description ? metadata.description.slice(0, 5e3) : ""
@@ -8080,7 +8114,10 @@ async function executeDownload(item) {
     ui.updateQueueItem(item.id, item);
     for (const result of results) {
       const sourceUrl = getAutoAddSourcePref() ? item.url : void 0;
-      await importToEagle(result.path, result.metadata, sourceUrl);
+      await importToEagle(result.path, result.metadata, sourceUrl, {
+        index: result.partIndex,
+        total: result.partTotal
+      });
       downloader.cleanup(result.path);
     }
     recordDownloaded(item.url);

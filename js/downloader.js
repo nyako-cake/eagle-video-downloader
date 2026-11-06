@@ -513,7 +513,13 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
           finalPath = outputPath;
         }
       }
-      results.push({ path: finalPath, metadata: videoInfo, filename: path.basename(finalPath) });
+      results.push({
+        path: finalPath,
+        metadata: videoInfo,
+        filename: path.basename(finalPath),
+        partIndex: images.length > 1 ? index + 1 : 0,
+        partTotal: images.length > 1 ? images.length : 0,
+      });
     }
     return results;
   }
@@ -536,7 +542,13 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
       const outputPath = path.join(multiDir, filename);
       await execYtDlp([videoUrl, "-o", outputPath, "--no-warnings", "--merge-output-format", "mp4"], undefined, null, false);
       if (!fs.existsSync(outputPath)) throw new Error(i18next.t("error.fileNotFound"));
-      multiResults.push({ path: outputPath, metadata: videoInfo, filename });
+      multiResults.push({
+        path: outputPath,
+        metadata: videoInfo,
+        filename,
+        partIndex: index + 1,
+        partTotal: directVideos.length,
+      });
     }
     return multiResults;
   }
@@ -634,10 +646,12 @@ async function downloadVideo(url, onProgress, onStatus, preloadedInfo = null) {
     throw new Error(i18next.t("error.fileNotFound"));
   }
 
-  return newFiles.map(filename => ({
+  return newFiles.map((filename, index) => ({
     path: path.join(outputDir, filename),
     metadata: videoInfo,
     filename: filename,
+    partIndex: newFiles.length > 1 ? index + 1 : 0,
+    partTotal: newFiles.length > 1 ? newFiles.length : 0,
   }));
 }
 

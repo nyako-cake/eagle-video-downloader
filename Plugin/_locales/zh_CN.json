@@ -122,7 +122,7 @@
     "twNameScreenNameLabel": "用户名（@handle）",
     "twNameTextLabel": "推文正文",
     "twNameFullNameLabel": "推特全名",
-    "twNameNote": "字段按「推特 ID → 推文 ID → 用户名 → 推文正文 → 推特全名」的顺序用「 - 」连接，超过 150 个字符截断；文件名非法字符会被替换。",
+    "twNameNote": "字段按「推特 ID → 推文 ID → 用户名 → 推文正文 → 推特全名」的顺序用「 - 」连接，超过 150 个字符截断；文件名非法字符会被替换；同一条推文有多个图片或视频时，名称末尾自动追加「 (1/N)」区分。",
     "maxResolutionLabel": "清晰度上限",
     "maxResolutionHint": "限制下载的最大清晰度。若目标视频无对应画质，将自动向下匹配最高可用清晰度。",
     "maxFramerateLabel": "帧率上限",

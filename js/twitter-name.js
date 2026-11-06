@@ -103,6 +103,44 @@ function buildTwitterName(metadata, prefs) {
   return joined.length > NAME_MAX_LENGTH ? joined.slice(0, NAME_MAX_LENGTH).trimEnd() : joined;
 }
 
+/**
+ * 同一条推文有多个文件（多图 / 多视频）时，在名称末尾追加「 (i/N)」，
+ * 避免同一份元信息生成完全相同的名称而互相覆盖。
+ * @param {string} name
+ * @param {number} index 第几个，1 起
+ * @param {number} total 总个数
+ * @param {number} [limit] 总长度上限，默认 NAME_MAX_LENGTH
+ * @returns {string}
+ */
+function appendPartSuffix(name, index, total, limit) {
+  const idx = Number(index) || 0;
+  const all = Number(total) || 0;
+  if (all <= 1 || idx <= 0) return name;
+  const suffix = ` (${idx}/${all})`;
+  const max = Number(limit) || NAME_MAX_LENGTH;
+  const base = String(name == null ? "" : name)
+    .slice(0, Math.max(1, max - suffix.length))
+    .trimEnd();
+  return base + suffix;
+}
+
+/**
+ * 组装最终导入名：推特按勾选字段拼名，否则用适配器标题，再按 (i/N) 追加序号。
+ * @param {Object} metadata
+ * @param {Object} prefs
+ * @param {{index: number, total: number}} [part]
+ * @param {string} [fallbackTitle] 没有标题时的兜底文案
+ * @returns {string}
+ */
+function composeImportName(metadata, prefs, part, fallbackTitle) {
+  const meta = metadata || {};
+  const isTwitter = String(meta.extractor || "").toLowerCase() === "twitter";
+  const composed = isTwitter ? buildTwitterName(meta, prefs) : "";
+  const base = composed || meta.title || fallbackTitle || "";
+  const limit = composed ? NAME_MAX_LENGTH : 180;
+  return appendPartSuffix(base, part && part.index, part && part.total, limit);
+}
+
 module.exports = {
   DEFAULT_PREFS,
   FIELD_ORDER,
@@ -110,6 +148,8 @@ module.exports = {
   NAME_MAX_LENGTH,
   getDefaultPrefs,
   buildTwitterName,
+  appendPartSuffix,
+  composeImportName,
   cleanValue,
   sanitizeName,
 };

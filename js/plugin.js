@@ -45,23 +45,25 @@ function buildImportTags(metadata) {
 
 /**
  * 计算导入 Eagle 时使用的素材名：
- * 推特按勾选字段拼名，未勾选任何字段时沿用适配器给出的标题。
+ * 推特按勾选字段拼名，未勾选任何字段时沿用适配器给出的标题；
+ * 同一条推文的多个文件按 (i/N) 追加序号，避免重名。
  */
-function buildImportName(metadata) {
-  if (String(metadata.extractor || "").toLowerCase() === "twitter") {
-    const composed = twitterName.buildTwitterName(metadata, getTwitterNamePrefs());
-    if (composed) return composed;
-  }
-  return metadata.title || i18next.t("error.downloadedVideo");
+function buildImportName(metadata, part) {
+  return twitterName.composeImportName(
+    metadata,
+    getTwitterNamePrefs(),
+    part,
+    i18next.t("error.downloadedVideo")
+  );
 }
 
-async function importToEagle(videoPath, metadata, sourceUrl) {
+async function importToEagle(videoPath, metadata, sourceUrl, part) {
   if (typeof eagle === "undefined") {
     throw new Error(i18next.t("error.eagleApiNotAvailable"));
   }
   const tags = buildImportTags(metadata);
   const importOptions = {
-    name: buildImportName(metadata),
+    name: buildImportName(metadata, part),
     website: sourceUrl || undefined,
     tags,
     annotation: metadata.description ? metadata.description.slice(0, 5000) : "",
@@ -858,7 +860,10 @@ async function executeDownload(item) {
 
     for (const result of results) {
       const sourceUrl = getAutoAddSourcePref() ? item.url : undefined;
-      await importToEagle(result.path, result.metadata, sourceUrl);
+      await importToEagle(result.path, result.metadata, sourceUrl, {
+        index: result.partIndex,
+        total: result.partTotal,
+      });
       downloader.cleanup(result.path);
     }
     recordDownloaded(item.url);

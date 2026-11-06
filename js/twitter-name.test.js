@@ -1,6 +1,6 @@
 // node js/twitter-name.test.js
 const assert = require("assert");
-const { buildTwitterName, sanitizeName, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
+const { buildTwitterName, sanitizeName, appendPartSuffix, composeImportName, FIELD_MAX_LENGTH, NAME_MAX_LENGTH } = require("./twitter-name");
 
 const tweetMeta = {
   authorId: "44196397",
@@ -73,5 +73,43 @@ assert.strictEqual(buildTwitterName(null, { text: true, name: true }), "");
 
 // 用户名不会重复加 @
 assert.strictEqual(buildTwitterName({ authorScreenName: "@nyako" }, { screenName: true }), "@nyako");
+
+// 同一条推文多个文件：末尾追加 (i/N)，单个文件不加
+assert.strictEqual(appendPartSuffix("名字", 2, 3, 150), "名字 (2/3)");
+assert.strictEqual(appendPartSuffix("名字", 1, 1, 150), "名字");
+assert.strictEqual(appendPartSuffix("名字", 0, 5, 150), "名字");
+assert.strictEqual(appendPartSuffix("名字", 1, 0, 150), "名字");
+
+// 加序号后仍受总长度上限约束
+const suffixBase = "猫".repeat(NAME_MAX_LENGTH);
+const suffixed = appendPartSuffix(suffixBase, 3, 4, NAME_MAX_LENGTH);
+assert.strictEqual(suffixed.length, NAME_MAX_LENGTH, "suffix keeps the total length within the limit");
+assert(suffixed.endsWith(" (3/4)"), "suffix is preserved at the end");
+
+// 一推多图：同一份元信息生成的名称靠序号区分，三张图互不相同
+const multiImageNames = [1, 2, 3].map((index) =>
+  composeImportName(tweetMeta, { text: true }, { index, total: 3 }, "downloaded")
+);
+assert.strictEqual(multiImageNames[0], "今日份的猫 好可爱 (1/3)");
+assert.strictEqual(multiImageNames[2], "今日份的猫 好可爱 (3/3)");
+assert.strictEqual(new Set(multiImageNames).size, 3, "multi-image names are unique");
+
+// 未勾选任何字段时沿用标题，同样带序号
+assert.strictEqual(
+  composeImportName(Object.assign({}, tweetMeta, { title: "正文 - @nyako_cake" }), {}, { index: 2, total: 2 }, "downloaded"),
+  "正文 - @nyako_cake (2/2)"
+);
+
+// 非推特站点不受字段规则影响，只追加序号
+assert.strictEqual(
+  composeImportName({ extractor: "youtube", title: "YouTube 视频" }, { text: true }, { index: 1, total: 2 }, "downloaded"),
+  "YouTube 视频 (1/2)"
+);
+
+// 单个文件不加序号
+assert.strictEqual(composeImportName(tweetMeta, { text: true }, { index: 0, total: 0 }, "downloaded"), "今日份的猫 好可爱");
+
+// 没有任何可用的名字时回落到兜底文案
+assert.strictEqual(composeImportName({}, {}, null, "downloaded video"), "downloaded video");
 
 console.log("twitter-name: buildTwitterName checks passed");

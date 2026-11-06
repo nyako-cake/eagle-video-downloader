@@ -122,7 +122,7 @@
     "twNameScreenNameLabel": "Username (@handle)",
     "twNameTextLabel": "Tweet text",
     "twNameFullNameLabel": "Full name",
-    "twNameNote": "Fields are joined with \" - \" in the order Twitter ID, Tweet ID, username, tweet text, full name; names longer than 150 characters are truncated and illegal filename characters are replaced.",
+    "twNameNote": "Fields are joined with \" - \" in the order Twitter ID, Tweet ID, username, tweet text, full name; names longer than 150 characters are truncated and illegal filename characters are replaced. When one tweet has several images or videos, \" (1/N)\" is appended to keep the names unique.",
     "maxResolutionLabel": "Max Resolution",
     "maxResolutionHint": "Limit the maximum video resolution. If not available, automatically falls back to the highest available resolution.",
     "maxFramerateLabel": "Max Frame Rate",
