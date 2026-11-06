@@ -14,7 +14,7 @@ YouTube、Twitter / X、TikTok、Bilibili、Instagram、Pinterest、Dribbble、V
 
 支持 yt-dlp 支持的视频网站，首次运行需要在依赖管理页点击安装 yt-dlp，使用 Eagle 官方 FFmpeg 插件合并音视频，下载完成后自动导入到 Eagle 并保存元数据，支持中英文界面，显示实时下载进度。同时支持下载 Pinterest 纯图片 Pin（自动获取高清原图）。
 
-## 新增与改动（3.2.0 – 3.13.3）
+## 新增与改动（3.2.0 – 3.7.0）
 
 本分支相对上游 3.0.0 的主要改动如下。
 
