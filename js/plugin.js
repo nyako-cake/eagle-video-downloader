@@ -55,14 +55,19 @@ function buildImportTags(metadata) {
 /**
  * 计算导入 Eagle 时使用的素材名：
  * 推特按勾选字段拼名，未勾选任何字段时沿用适配器给出的标题；
- * 同一条推文的多个文件按 (i/N) 追加序号，避免重名。
+ * 同一条推文的多个文件按 (i/N) 追加序号（推特、小红书各有一个开关，可关闭），避免重名。
  */
 function buildImportName(metadata, part) {
+  const extractor = String((metadata && metadata.extractor) || "").toLowerCase();
+  let appendPart = true;
+  if (extractor === "twitter") appendPart = getTwitterMultiFilePref();
+  else if (extractor === "xiaohongshu") appendPart = getXhsMultiFilePref();
   return twitterName.composeImportName(
     metadata,
     getTwitterNamePrefs(),
     part,
-    i18next.t("error.downloadedVideo")
+    i18next.t("error.downloadedVideo"),
+    appendPart
   );
 }
 
@@ -133,6 +138,42 @@ function getXhsTagsPref() {
  */
 function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
+}
+
+// 小红书同一篇笔记产出多个文件时，是否在名称末尾追加 (i/N) 区分
+const XHS_MULTI_FILE_KEY = "eagle-video-downloader.xhsMultiFile";
+
+/**
+ * 获取小红书多图是否追加序号（默认开启）
+ */
+function getXhsMultiFilePref() {
+  const val = localStorage.getItem(XHS_MULTI_FILE_KEY);
+  return val === null ? true : val === "true";
+}
+
+/**
+ * 保存小红书多图是否追加序号
+ */
+function setXhsMultiFilePref(value) {
+  localStorage.setItem(XHS_MULTI_FILE_KEY, String(value));
+}
+
+// 同一条推文产出多个文件时，是否在名称末尾追加 (i/N) 区分
+const TWITTER_MULTI_FILE_KEY = "eagle-video-downloader.twitterMultiFile";
+
+/**
+ * 获取推特多文件是否追加序号（默认开启）
+ */
+function getTwitterMultiFilePref() {
+  const val = localStorage.getItem(TWITTER_MULTI_FILE_KEY);
+  return val === null ? true : val === "true";
+}
+
+/**
+ * 保存推特多文件是否追加序号
+ */
+function setTwitterMultiFilePref(value) {
+  localStorage.setItem(TWITTER_MULTI_FILE_KEY, String(value));
 }
 
 // 推特素材命名 / 注释的勾选状态与字段顺序（JSON：{ authorId, tweetId, screenName, text, name, order }）
@@ -529,6 +570,22 @@ function setupEventListeners() {
     });
   }
 
+  // 小红书多图区分开关
+  const xhsMultiFileToggle = document.getElementById("xhsMultiFileToggle");
+  if (xhsMultiFileToggle) {
+    xhsMultiFileToggle.addEventListener("change", (e) => {
+      setXhsMultiFilePref(e.target.checked);
+    });
+  }
+
+  // 推特多文件区分开关
+  const twMultiFileToggle = document.getElementById("twMultiFileToggle");
+  if (twMultiFileToggle) {
+    twMultiFileToggle.addEventListener("change", (e) => {
+      setTwitterMultiFilePref(e.target.checked);
+    });
+  }
+
   // 推特素材命名复选框
   const twitterNameToggles = {
     authorId: "twNameAuthorId",
@@ -869,9 +926,11 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    xhsMultiFilePref: getXhsMultiFilePref(),
+    twitterMultiFilePref: getTwitterMultiFilePref(),
     twitterNamePref: getTwitterNamePrefs(),
-        twitterAnnotationPref: getTwitterAnnotationPrefs(),
-        twitterTagsPref: getTwitterTagsPref(),
+    twitterAnnotationPref: getTwitterAnnotationPrefs(),
+    twitterTagsPref: getTwitterTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1162,9 +1221,11 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    xhsMultiFilePref: getXhsMultiFilePref(),
+    twitterMultiFilePref: getTwitterMultiFilePref(),
     twitterNamePref: getTwitterNamePrefs(),
-        twitterAnnotationPref: getTwitterAnnotationPrefs(),
-        twitterTagsPref: getTwitterTagsPref(),
+    twitterAnnotationPref: getTwitterAnnotationPrefs(),
+    twitterTagsPref: getTwitterTagsPref(),
     maxResolutionPref: getMaxResolutionPref(),
     maxFrameratePref: getMaxFrameratePref(),
     threadCountPref: getThreadCountPref(),
@@ -1615,5 +1676,9 @@ module.exports = {
   setTwitterTagsPref,
   setTwitterTagsOrder,
   moveTwitterTagsField,
+  getXhsMultiFilePref,
+  setXhsMultiFilePref,
+  getTwitterMultiFilePref,
+  setTwitterMultiFilePref,
 };
 

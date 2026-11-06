@@ -239,14 +239,16 @@ function moveInOrder(order, field, direction) {
  * @param {Object} prefs
  * @param {{index: number, total: number}} [part]
  * @param {string} [fallbackTitle] 没有标题时的兜底文案
+ * @param {boolean} [appendPart] 一个条目产出多个文件时是否追加 (i/N)，默认追加
  * @returns {string}
  */
-function composeImportName(metadata, prefs, part, fallbackTitle) {
+function composeImportName(metadata, prefs, part, fallbackTitle, appendPart = true) {
   const meta = metadata || {};
   const isTwitter = String(meta.extractor || "").toLowerCase() === "twitter";
   const composed = isTwitter ? buildTwitterName(meta, prefs) : "";
   const base = composed || meta.title || fallbackTitle || "";
   const limit = composed ? NAME_MAX_LENGTH : 180;
+  if (!appendPart) return base.slice(0, limit);
   return appendPartSuffix(base, part && part.index, part && part.total, limit);
 }
 

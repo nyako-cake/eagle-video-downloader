@@ -1132,12 +1132,16 @@
       cursor: default;
     }
 
-    /* 推特信息规则：名称 / 注释 / 标签三列并排，各自独立排序 */
+    /* 推特信息规则：名称 / 注释 / 标签三列并排，各自独立排序，列与列之间有分隔线 */
     .setting-check-columns {
       display: flex;
-      align-items: flex-start;
-      gap: 6px;
+      align-items: stretch;
+      gap: 0;
       width: 100%;
+      padding: 6px 0;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
     }
 
     .setting-check-group {
@@ -1146,13 +1150,18 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      padding: 0 2px;
+    }
+
+    .setting-check-group + .setting-check-group {
+      border-left: 1px solid var(--border-strong);
     }
 
     .setting-check-title {
       font-size: 11px;
       font-weight: 600;
       color: var(--fg2);
-      padding: 0 4px;
+      padding: 0 2px;
     }
 
     .setting-checkboxes {
@@ -1196,7 +1205,7 @@
     }
 
     .setting-check-row:hover {
-      background: var(--bg-hover);
+      background: var(--bg-panel);
     }
 
     .setting-order-actions {
@@ -1206,7 +1215,7 @@
     }
 
     .setting-order-btn {
-      width: 15px;
+      width: 14px;
       height: 16px;
       display: inline-flex;
       align-items: center;
@@ -1655,6 +1664,16 @@
                     <span class="slider"></span>
                   </label>
                 </div>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span id="xhsMultiFileLabel" class="setting-title">Distinguish Multiple Files</span>
+                    <span id="xhsMultiFileHint" class="setting-desc">Append " (1/N)" to the item name when one note yields several images or videos, so the files do not share a name.</span>
+                  </div>
+                  <label class="switch no-drag">
+                    <input type="checkbox" id="xhsMultiFileToggle" checked />
+                    <span class="slider"></span>
+                  </label>
+                </div>
                 <p class="setting-note" id="tagsNote">Tags are written into Eagle when an item is imported.</p>
               </div>
 
@@ -1832,7 +1851,17 @@
                     </div>
                   </div>
                 </div>
-                <p class="setting-note" id="twNameNote">Name: fields joined with " - " in the order you arrange, illegal filename characters replaced, " (1/N)" appended when one tweet yields several files.</p>
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <span id="twMultiFileLabel" class="setting-title">Distinguish Multiple Files</span>
+                    <span id="twMultiFileHint" class="setting-desc">Append " (1/N)" to the item name when one tweet yields several images or videos, so the files do not share a name.</span>
+                  </div>
+                  <label class="switch no-drag">
+                    <input type="checkbox" id="twMultiFileToggle" checked />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <p class="setting-note" id="twNameNote">Name: fields joined with " - " in the order you arrange, up to 150 characters; illegal filename characters are replaced.</p>
                 <p class="setting-note" id="twAnNote">Annotation: joined with " - " in the order you arrange, up to 5000 characters; checking any field replaces the plain tweet text, so check "Text" to keep it.</p>
                 <p class="setting-note" id="twTagNote">Tags: each checked field becomes its own tag, listed in the order you arrange, after the site tag.</p>
               </div>

@@ -141,6 +141,20 @@ assert.strictEqual(composeImportName(tweetMeta, { text: true }, { index: 0, tota
 // 没有任何可用的名字时回落到兜底文案
 assert.strictEqual(composeImportName({}, {}, null, "downloaded video"), "downloaded video");
 
+// 多文件区分开关关闭时：不加 (i/N)，几个文件共用同一个名称
+assert.strictEqual(
+  composeImportName(tweetMeta, { text: true }, { index: 2, total: 3 }, "downloaded", false),
+  "今日份的猫 好可爱",
+  "appendPart=false keeps the plain name"
+);
+assert.strictEqual(
+  composeImportName({ extractor: "xiaohongshu", title: "笔记标题" }, {}, { index: 1, total: 2 }, "downloaded", false),
+  "笔记标题",
+  "appendPart=false also applies to non-Twitter sources"
+);
+// 开关打开时行为不变
+assert.strictEqual(composeImportName(tweetMeta, { text: true }, { index: 2, total: 3 }, "downloaded", true), "今日份的猫 好可爱 (2/3)");
+
 // ---------------- 注释规则 ----------------
 
 // 一项都不勾：返回空串，调用方回落到推文正文

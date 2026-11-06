@@ -6204,12 +6204,14 @@ var require_twitter_name = __commonJS({
       list[index] = moved;
       return list;
     }
-    function composeImportName(metadata, prefs, part, fallbackTitle) {
+    function composeImportName(metadata, prefs, part, fallbackTitle, appendPart = true) {
       const meta = metadata || {};
       const isTwitter = String(meta.extractor || "").toLowerCase() === "twitter";
       const composed = isTwitter ? buildTwitterName(meta, prefs) : "";
       const base = composed || meta.title || fallbackTitle || "";
       const limit = composed ? NAME_MAX_LENGTH : 180;
+      if (!appendPart)
+        return base.slice(0, limit);
       return appendPartSuffix(base, part && part.index, part && part.total, limit);
     }
     module2.exports = {
@@ -6674,7 +6676,7 @@ var require_ui = __commonJS({
       el.style.height = "auto";
       el.style.height = Math.max(38, el.scrollHeight) + "px";
     }
-    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, twitterTagsPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+    function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, xhsMultiFilePref = true, twitterMultiFilePref = true, twitterNamePref = {}, twitterAnnotationPref = {}, twitterTagsPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
       var _a, _b;
       const tabBtnSettings = document.getElementById("tabBtnSettings");
       const tabBtnTags = document.getElementById("tabBtnTags");
@@ -6686,6 +6688,12 @@ var require_ui = __commonJS({
       const xhsTagsLabel = document.getElementById("xhsTagsLabel");
       const xhsTagsHint = document.getElementById("xhsTagsHint");
       const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+      const xhsMultiFileLabel = document.getElementById("xhsMultiFileLabel");
+      const xhsMultiFileHint = document.getElementById("xhsMultiFileHint");
+      const xhsMultiFileToggle = document.getElementById("xhsMultiFileToggle");
+      const twMultiFileLabel = document.getElementById("twMultiFileLabel");
+      const twMultiFileHint = document.getElementById("twMultiFileHint");
+      const twMultiFileToggle = document.getElementById("twMultiFileToggle");
       const tagsTitle = document.getElementById("tagsTitle");
       const tagsNote = document.getElementById("tagsNote");
       const twNameTitle = document.getElementById("twNameTitle");
@@ -6752,6 +6760,18 @@ var require_ui = __commonJS({
         xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
       if (xhsTagsToggle)
         xhsTagsToggle.checked = xhsTagsPref !== false;
+      if (xhsMultiFileLabel)
+        xhsMultiFileLabel.textContent = i18next.t("deps.xhsMultiFileLabel");
+      if (xhsMultiFileHint)
+        xhsMultiFileHint.textContent = i18next.t("deps.xhsMultiFileHint");
+      if (xhsMultiFileToggle)
+        xhsMultiFileToggle.checked = xhsMultiFilePref !== false;
+      if (twMultiFileLabel)
+        twMultiFileLabel.textContent = i18next.t("deps.twMultiFileLabel");
+      if (twMultiFileHint)
+        twMultiFileHint.textContent = i18next.t("deps.twMultiFileHint");
+      if (twMultiFileToggle)
+        twMultiFileToggle.checked = twitterMultiFilePref !== false;
       if (tagsTitle)
         tagsTitle.textContent = i18next.t("deps.tagsTitle");
       if (tagsNote)
@@ -7280,6 +7300,10 @@ var require_en = __commonJS({
         xhsTagsLabel: "Xiaohongshu Tags",
         xhsTagsHint: "When enabled, Xiaohongshu note topics are written as Eagle tags; turn off to import without any tags",
         tagsNote: "Tags are written into Eagle when an item is imported: Xiaohongshu notes use their topics, other sites use the site identifier. Up to 30 tags per import.",
+        xhsMultiFileLabel: "Distinguish Multiple Files",
+        xhsMultiFileHint: 'Append " (1/N)" to the item name when one note yields several images or videos; turn off to let them share one name.',
+        twMultiFileLabel: "Distinguish Multiple Files",
+        twMultiFileHint: 'Append " (1/N)" to the item name when one tweet yields several images or videos; turn off to let them share one name.',
         twNameTitle: "Twitter Info Rules",
         twNameHint: `The left column builds the item name, the middle one its annotation and the right one extra tags; each row's arrows set the order. With nothing selected the name keeps "tweet text - @handle", the annotation keeps the plain tweet text and the tags stay as the site tag. Twitter ID means the author numeric ID.`,
         twNameColumnTitle: "Name",
@@ -7288,7 +7312,7 @@ var require_en = __commonJS({
         twNameScreenNameLabel: "Username",
         twNameTextLabel: "Text",
         twNameFullNameLabel: "Full name",
-        twNameNote: 'Name: fields joined with " - " in the order you arrange, illegal filename characters replaced, " (1/N)" appended when one tweet yields several files.',
+        twNameNote: 'Name: fields joined with " - " in the order you arrange, up to 150 characters; illegal filename characters are replaced.',
         twAnColumnTitle: "Annotation",
         twAnAuthorIdLabel: "Twitter ID",
         twAnTweetIdLabel: "Tweet ID",
@@ -7506,6 +7530,10 @@ var require_zh_CN = __commonJS({
         xhsTagsLabel: "\u5C0F\u7EA2\u4E66\u6807\u7B7E",
         xhsTagsHint: "\u5F00\u542F\u540E\uFF0C\u4E0B\u8F7D\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u65F6\u4F1A\u628A\u7B14\u8BB0\u8BDD\u9898\u5199\u5165 Eagle \u6807\u7B7E\uFF1B\u5173\u95ED\u5219\u4E0D\u5E26\u4EFB\u4F55\u6807\u7B7E",
         tagsNote: "\u6807\u7B7E\u5728\u4E0B\u8F7D\u5B8C\u6210\u5BFC\u5165 Eagle \u65F6\u5199\u5165\uFF1A\u5C0F\u7EA2\u4E66\u7B14\u8BB0\u5199\u5165\u8BDD\u9898\u6807\u7B7E\uFF0C\u5176\u4ED6\u7AD9\u70B9\u5199\u5165\u7AD9\u70B9\u6807\u8BC6\uFF0C\u5355\u6B21\u5BFC\u5165\u6700\u591A 30 \u4E2A\u6807\u7B7E\u3002",
+        xhsMultiFileLabel: "\u591A\u56FE\u533A\u5206",
+        xhsMultiFileHint: "\u5F00\u542F\u540E\uFF0C\u540C\u4E00\u7BC7\u7B14\u8BB0\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\uFF1B\u5173\u95ED\u5219\u51E0\u4E2A\u6587\u4EF6\u5171\u7528\u540C\u4E00\u4E2A\u540D\u79F0\u3002",
+        twMultiFileLabel: "\u591A\u6587\u4EF6\u533A\u5206",
+        twMultiFileHint: "\u5F00\u542F\u540E\uFF0C\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\uFF1B\u5173\u95ED\u5219\u51E0\u4E2A\u6587\u4EF6\u5171\u7528\u540C\u4E00\u4E2A\u540D\u79F0\u3002",
         twNameTitle: "\u63A8\u7279\u4FE1\u606F\u89C4\u5219",
         twNameHint: "\u5DE6\u4FA7\u52FE\u9009\u51B3\u5B9A\u7D20\u6750\u540D\u79F0\uFF0C\u4E2D\u95F4\u51B3\u5B9A\u6CE8\u91CA\uFF0C\u53F3\u4FA7\u51B3\u5B9A\u6807\u7B7E\uFF0C\u6BCF\u884C\u7BAD\u5934\u8C03\u6574\u5404\u81EA\u987A\u5E8F\uFF1B\u5168\u4E0D\u52FE\u65F6\u540D\u79F0\u6CBF\u7528\u300C\u63A8\u6587\u6B63\u6587 - @\u7528\u6237\u540D\u300D\u3001\u6CE8\u91CA\u6CBF\u7528\u63A8\u6587\u6B63\u6587\u3001\u6807\u7B7E\u6CBF\u7528\u7AD9\u70B9\u6807\u7B7E\u3002\u63A8\u7279 ID \u5373\u4F5C\u8005\u6570\u5B57 ID\u3002",
         twNameColumnTitle: "\u540D\u79F0",
@@ -7514,7 +7542,7 @@ var require_zh_CN = __commonJS({
         twNameScreenNameLabel: "\u7528\u6237\u540D",
         twNameTextLabel: "\u6B63\u6587",
         twNameFullNameLabel: "\u5168\u540D",
-        twNameNote: "\u540D\u79F0\uFF1A\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\uFF1B\u540C\u4E00\u6761\u63A8\u6587\u6709\u591A\u4E2A\u56FE\u7247\u6216\u89C6\u9891\u65F6\uFF0C\u540D\u79F0\u672B\u5C3E\u81EA\u52A8\u8FFD\u52A0\u300C (1/N)\u300D\u533A\u5206\u3002",
+        twNameNote: "\u540D\u79F0\uFF1A\u5B57\u6BB5\u6309\u4F60\u8C03\u6574\u540E\u7684\u987A\u5E8F\u7528\u300C - \u300D\u8FDE\u63A5\uFF0C\u8D85\u8FC7 150 \u4E2A\u5B57\u7B26\u622A\u65AD\uFF1B\u6587\u4EF6\u540D\u975E\u6CD5\u5B57\u7B26\u4F1A\u88AB\u66FF\u6362\u3002",
         twAnColumnTitle: "\u6CE8\u91CA",
         twAnAuthorIdLabel: "\u63A8\u7279 ID",
         twAnTweetIdLabel: "\u63A8\u6587 ID",
@@ -7650,11 +7678,18 @@ function buildImportTags(metadata) {
   return merged.slice(0, 30);
 }
 function buildImportName(metadata, part) {
+  const extractor = String(metadata && metadata.extractor || "").toLowerCase();
+  let appendPart = true;
+  if (extractor === "twitter")
+    appendPart = getTwitterMultiFilePref();
+  else if (extractor === "xiaohongshu")
+    appendPart = getXhsMultiFilePref();
   return twitterName.composeImportName(
     metadata,
     getTwitterNamePrefs(),
     part,
-    i18next2.t("error.downloadedVideo")
+    i18next2.t("error.downloadedVideo"),
+    appendPart
   );
 }
 function buildImportAnnotation(metadata) {
@@ -7699,6 +7734,22 @@ function getXhsTagsPref() {
 }
 function setXhsTagsPref(value) {
   localStorage.setItem(XHS_TAGS_KEY, String(value));
+}
+var XHS_MULTI_FILE_KEY = "eagle-video-downloader.xhsMultiFile";
+function getXhsMultiFilePref() {
+  const val = localStorage.getItem(XHS_MULTI_FILE_KEY);
+  return val === null ? true : val === "true";
+}
+function setXhsMultiFilePref(value) {
+  localStorage.setItem(XHS_MULTI_FILE_KEY, String(value));
+}
+var TWITTER_MULTI_FILE_KEY = "eagle-video-downloader.twitterMultiFile";
+function getTwitterMultiFilePref() {
+  const val = localStorage.getItem(TWITTER_MULTI_FILE_KEY);
+  return val === null ? true : val === "true";
+}
+function setTwitterMultiFilePref(value) {
+  localStorage.setItem(TWITTER_MULTI_FILE_KEY, String(value));
 }
 var TWITTER_NAME_KEY = "eagle-video-downloader.twitterName";
 var TWITTER_ANNOTATION_KEY = "eagle-video-downloader.twitterAnnotation";
@@ -7956,6 +8007,18 @@ function setupEventListeners() {
   if (xhsTagsToggle) {
     xhsTagsToggle.addEventListener("change", (e) => {
       setXhsTagsPref(e.target.checked);
+    });
+  }
+  const xhsMultiFileToggle = document.getElementById("xhsMultiFileToggle");
+  if (xhsMultiFileToggle) {
+    xhsMultiFileToggle.addEventListener("change", (e) => {
+      setXhsMultiFilePref(e.target.checked);
+    });
+  }
+  const twMultiFileToggle = document.getElementById("twMultiFileToggle");
+  if (twMultiFileToggle) {
+    twMultiFileToggle.addEventListener("change", (e) => {
+      setTwitterMultiFilePref(e.target.checked);
     });
   }
   const twitterNameToggles = {
@@ -8271,6 +8334,8 @@ async function initializeBinaries() {
     gating: true,
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    xhsMultiFilePref: getXhsMultiFilePref(),
+    twitterMultiFilePref: getTwitterMultiFilePref(),
     twitterNamePref: getTwitterNamePrefs(),
     twitterAnnotationPref: getTwitterAnnotationPrefs(),
     twitterTagsPref: getTwitterTagsPref(),
@@ -8512,6 +8577,8 @@ function openDepsPage() {
     tab: "settings",
     autoAddSourcePref: getAutoAddSourcePref(),
     xhsTagsPref: getXhsTagsPref(),
+    xhsMultiFilePref: getXhsMultiFilePref(),
+    twitterMultiFilePref: getTwitterMultiFilePref(),
     twitterNamePref: getTwitterNamePrefs(),
     twitterAnnotationPref: getTwitterAnnotationPrefs(),
     twitterTagsPref: getTwitterTagsPref(),
@@ -8912,5 +8979,9 @@ module.exports = {
   getTwitterTagsPref,
   setTwitterTagsPref,
   setTwitterTagsOrder,
-  moveTwitterTagsField
+  moveTwitterTagsField,
+  getXhsMultiFilePref,
+  setXhsMultiFilePref,
+  getTwitterMultiFilePref,
+  setTwitterMultiFilePref
 };

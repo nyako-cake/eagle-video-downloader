@@ -537,7 +537,7 @@ function autoGrowTextarea(el) {
  * @param {Object} opts.twitterAnnotationPref - 推特素材注释的勾选状态
  * @param {Object} opts.twitterTagsPref - 推特素材标签规则的勾选状态
  */
-function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, twitterNamePref = {}, twitterAnnotationPref = {}, twitterTagsPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
+function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = true, xhsTagsPref = true, xhsMultiFilePref = true, twitterMultiFilePref = true, twitterNamePref = {}, twitterAnnotationPref = {}, twitterTagsPref = {}, maxResolutionPref = "auto", maxFrameratePref = "auto", threadCountPref = "auto" } = {}) {
   // 填充静态文本
   const tabBtnSettings = document.getElementById("tabBtnSettings");
   const tabBtnTags = document.getElementById("tabBtnTags");
@@ -549,6 +549,12 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   const xhsTagsLabel = document.getElementById("xhsTagsLabel");
   const xhsTagsHint = document.getElementById("xhsTagsHint");
   const xhsTagsToggle = document.getElementById("xhsTagsToggle");
+  const xhsMultiFileLabel = document.getElementById("xhsMultiFileLabel");
+  const xhsMultiFileHint = document.getElementById("xhsMultiFileHint");
+  const xhsMultiFileToggle = document.getElementById("xhsMultiFileToggle");
+  const twMultiFileLabel = document.getElementById("twMultiFileLabel");
+  const twMultiFileHint = document.getElementById("twMultiFileHint");
+  const twMultiFileToggle = document.getElementById("twMultiFileToggle");
   const tagsTitle = document.getElementById("tagsTitle");
   const tagsNote = document.getElementById("tagsNote");
   const twNameTitle = document.getElementById("twNameTitle");
@@ -607,6 +613,12 @@ function showDepsPage({ tab = "settings", gating = false, autoAddSourcePref = tr
   if (xhsTagsLabel) xhsTagsLabel.textContent = i18next.t("deps.xhsTagsLabel");
   if (xhsTagsHint) xhsTagsHint.textContent = i18next.t("deps.xhsTagsHint");
   if (xhsTagsToggle) xhsTagsToggle.checked = xhsTagsPref !== false;
+  if (xhsMultiFileLabel) xhsMultiFileLabel.textContent = i18next.t("deps.xhsMultiFileLabel");
+  if (xhsMultiFileHint) xhsMultiFileHint.textContent = i18next.t("deps.xhsMultiFileHint");
+  if (xhsMultiFileToggle) xhsMultiFileToggle.checked = xhsMultiFilePref !== false;
+  if (twMultiFileLabel) twMultiFileLabel.textContent = i18next.t("deps.twMultiFileLabel");
+  if (twMultiFileHint) twMultiFileHint.textContent = i18next.t("deps.twMultiFileHint");
+  if (twMultiFileToggle) twMultiFileToggle.checked = twitterMultiFilePref !== false;
   if (tagsTitle) tagsTitle.textContent = i18next.t("deps.tagsTitle");
   if (tagsNote) tagsNote.textContent = i18next.t("deps.tagsNote");
 

@@ -148,4 +148,47 @@ assert.deepStrictEqual(plugin.buildImportTags({ extractor: "youtube", tags: ["#�
 
 console.log("twitter-name: plugin import tags checks passed");
 
+// ---------------- 多文件区分开关 ----------------
+
+// 先把命名规则恢复成「只勾正文、默认顺序」，好对比开关前后的差异
+for (const field of ["authorId", "tweetId", "screenName", "text", "name"]) plugin.setTwitterNamePref(field, false);
+plugin.setTwitterNamePref("text", true);
+plugin.setTwitterNameOrder(["authorId", "tweetId", "screenName", "text", "name"]);
+
+// 默认开启：一条推文两个文件，名称末尾带 (i/N)
+assert.deepStrictEqual(
+  [1, 2].map((index) => plugin.buildImportName(tweet, { index, total: 2 })),
+  ["今日份的猫 好可爱 (1/2)", "今日份的猫 好可爱 (2/2)"]
+);
+assert.strictEqual(plugin.getTwitterMultiFilePref(), true, "twitter suffix is on by default");
+
+// 关掉推特多文件区分：两个文件同名，不再追加序号
+plugin.setTwitterMultiFilePref(false);
+assert.deepStrictEqual(
+  [1, 2].map((index) => plugin.buildImportName(tweet, { index, total: 2 })),
+  ["今日份的猫 好可爱", "今日份的猫 好可爱"],
+  "twitter suffix can be turned off"
+);
+assert.strictEqual(plugin.getTwitterMultiFilePref(), false);
+plugin.setTwitterMultiFilePref(true);
+assert.strictEqual(plugin.buildImportName(tweet, { index: 1, total: 2 }), "今日份的猫 好可爱 (1/2)");
+
+// 小红书：默认带序号，关掉后同名；与推特开关互不影响
+const xhsNote = { extractor: "xiaohongshu", title: "笔记标题" };
+assert.strictEqual(plugin.getXhsMultiFilePref(), true, "xhs suffix is on by default");
+assert.strictEqual(plugin.buildImportName(xhsNote, { index: 1, total: 2 }), "笔记标题 (1/2)");
+plugin.setXhsMultiFilePref(false);
+assert.strictEqual(plugin.buildImportName(xhsNote, { index: 1, total: 2 }), "笔记标题");
+assert.strictEqual(
+  plugin.buildImportName(tweet, { index: 1, total: 2 }),
+  "今日份的猫 好可爱 (1/2)",
+  "twitter is unaffected by the xhs switch"
+);
+plugin.setXhsMultiFilePref(true);
+
+// 非推特、非小红书来源仍按原样追加序号
+assert.strictEqual(plugin.buildImportName({ extractor: "youtube", title: "视频" }, { index: 2, total: 3 }), "视频 (2/3)");
+
+console.log("twitter-name: plugin multi-file switch checks passed");
+
 console.log("twitter-name: plugin import name and order checks passed");
